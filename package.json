@@ -1,0 +1,10 @@
+{
+  "type": "module",
+  "scripts": {
+    "dev": "npm --prefix noon-instalment-payment run dev",
+    "build": "npm --prefix noon-instalment-payment run build"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.118.0"
+  }
+}

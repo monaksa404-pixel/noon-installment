@@ -1,0 +1,565 @@
+import { supabase } from "./supabase.js";
+
+const CUSTOMER_SELECT = `
+  id,
+  customer_code,
+  full_name,
+  mobile,
+  city,
+  address,
+  location_pin,
+  id_document_path,
+  payment_method,
+  created_by,
+  archived_at,
+  status,
+  created_at,
+  customer_products (product_id, product_name, price),
+  customer_bank_assignments (
+    is_active,
+    bank_accounts (id, bank_name, account_name, iban, instructions)
+  ),
+  instalment_contracts (
+    id,
+    product_id,
+    product_name,
+    total_amount,
+    down_payment,
+    remaining_amount,
+    duration_months,
+    monthly_amount,
+    start_date,
+    status,
+    created_at,
+    instalments (id, month_number, amount, due_date, status, paid_at)
+  )
+`;
+
+function fail(error) {
+  const message = error?.message || "Request failed";
+  if (
+    /schema cache|could not find the function|does not exist|bucket not found/i.test(
+      message
+    )
+  ) {
+    throw new Error(
+      "Database setup is missing. Run supabase/schema.sql in the Supabase SQL editor, then try again."
+    );
+  }
+  throw new Error(message);
+}
+
+function mapProduct(item) {
+  return {
+    id: item.id,
+    name: item.name,
+    price: Number(item.price || 0),
+    sellerType:
+      item.description === "__seller_type_normal__" ? "normal" : "noon",
+    image: item.image_path || "",
+    createdAt: item.created_at,
+  };
+}
+
+function mapBank(item) {
+  if (!item) return null;
+  const bank = Array.isArray(item) ? item[0] : item;
+  if (!bank) return null;
+  return {
+    id: bank.id,
+    bankName: bank.bank_name || "",
+    accountName: bank.account_name || "",
+    iban: bank.iban || "",
+    instructions: bank.instructions || "",
+  };
+}
+
+function latestContract(row) {
+  const contracts = row.instalment_contracts || [];
+  return [...contracts].sort((left, right) =>
+    String(right.created_at || "").localeCompare(String(left.created_at || ""))
+  )[0];
+}
+
+function assignedBank(row) {
+  const assignments = row.customer_bank_assignments || [];
+  const active = assignments.find((item) => item.is_active !== false) || assignments[0];
+  return mapBank(active?.bank_accounts);
+}
+
+function mapCustomer(row, idDocument = "") {
+  const contract = latestContract(row);
+  const instalmentRows = contract?.instalments || [];
+  const schedule = instalmentRows
+    .filter((item) => Number(item.month_number) > 0)
+    .sort((left, right) => Number(left.month_number) - Number(right.month_number))
+    .map((item) => ({
+      id: item.id,
+      month: Number(item.month_number),
+      amount: Number(item.amount || 0),
+      dueDate: item.due_date || "",
+      paid: item.status === "paid" || Boolean(item.paid_at),
+    }));
+  const downRow = instalmentRows.find((item) => Number(item.month_number) === 0);
+  const products = (row.customer_products || []).map((item) => ({
+    id: item.product_id,
+    name: item.product_name,
+    price: Number(item.price || 0),
+  }));
+  if (!products.length && contract?.product_name) {
+    products.push({
+      id: contract.product_id,
+      name: contract.product_name,
+      price: Number(contract.total_amount || 0),
+    });
+  }
+  const downPayment = Number(contract?.down_payment || 0);
+
+  return {
+    id: row.id,
+    customerId: row.customer_code,
+    name: row.full_name || "",
+    phone: row.mobile || "",
+    locationPin: row.location_pin || row.address || row.city || "",
+    hasIdDocument: Boolean(row.id_document_path),
+    idDocument,
+    products,
+    productId: products[0]?.id || contract?.product_id || "",
+    productName: products.map((item) => item.name).filter(Boolean).join(", "),
+    productPrice: Number(contract?.total_amount || 0),
+    downPayment,
+    remainingAmount: Number(contract?.remaining_amount || 0),
+    duration: Number(contract?.duration_months || 0),
+    monthlyAmount: Number(contract?.monthly_amount || 0),
+    paymentMethod: row.payment_method || "bank",
+    bankAccountId: assignedBank(row)?.id || "",
+    bank: assignedBank(row),
+    contractId: contract?.id || "",
+    schedule,
+    downInstalment: downRow
+      ? {
+          id: downRow.id,
+          amount: Number(downRow.amount || downPayment),
+          dueDate: downRow.due_date || "Due now",
+          paid: downRow.status === "paid" || Boolean(downRow.paid_at),
+        }
+      : null,
+    paidDownPayment: downPayment <= 0 || !downRow || downRow.status === "paid" || Boolean(downRow.paid_at),
+    paidMonths: schedule.filter((item) => item.paid).map((item) => item.month),
+    createdAt: contract?.start_date || row.created_at,
+    createdBy: row.created_by || "",
+    archivedAt: row.archived_at || "",
+  };
+}
+
+function mapPayment(row, receiptUrl = "") {
+  const customer = Array.isArray(row.customers) ? row.customers[0] : row.customers;
+  const instalment = Array.isArray(row.instalments) ? row.instalments[0] : row.instalments;
+  const month = instalment ? Number(instalment.month_number) : null;
+  return {
+    id: row.id,
+    customerId: customer?.customer_code || "",
+    customerUuid: row.customer_id,
+    kind: month === 0 ? "down_payment" : "instalment",
+    month: month === 0 ? null : month,
+    amount: Number(row.amount || 0),
+    method: row.payment_method || "",
+    receiptUrl,
+    cardholderName: row.cardholder_name || "",
+    status: row.status,
+    reviewedAt: row.reviewed_at,
+    createdAt: row.created_at,
+  };
+}
+
+async function signedUrl(bucket, path) {
+  if (!path) return "";
+  if (String(path).startsWith("http")) return String(path);
+  const { data, error } = await supabase.storage
+    .from(bucket)
+    .createSignedUrl(path, 60 * 60 * 12);
+  if (error) return "";
+  return data?.signedUrl || "";
+}
+
+export function dueLabel(startDate, month) {
+  const base = startDate ? new Date(startDate) : new Date();
+  if (Number.isNaN(base.getTime())) return "Contact admin";
+  const date = new Date(base);
+  date.setMonth(date.getMonth() + Number(month || 0));
+  return date.toLocaleDateString("en-GB", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
+}
+
+export function paymentTargets(customer) {
+  const schedule = customer.schedule?.length
+    ? customer.schedule
+    : Array.from({ length: Number(customer.duration || 0) }, (_, index) => {
+        const month = index + 1;
+        return {
+          month,
+          amount: Number(customer.monthlyAmount || 0),
+          dueDate: dueLabel(customer.createdAt, month),
+          paid: (customer.paidMonths || []).includes(month),
+        };
+      });
+  const nextRow = schedule.find((item) => !item.paid);
+  const monthly = Number(customer.monthlyAmount || 0);
+  const down = Number(customer.downPayment || 0);
+  const nextInstalment = nextRow
+    ? {
+        kind: "instalment",
+        month: nextRow.month,
+        amount: Number(nextRow.amount || monthly),
+        dueDate: nextRow.dueDate || dueLabel(customer.createdAt, nextRow.month),
+        label: `Month ${nextRow.month}`,
+        instalmentId: nextRow.id,
+      }
+    : null;
+
+  const nextDue =
+    !customer.paidDownPayment && down > 0
+      ? {
+          kind: "down_payment",
+          month: null,
+          amount: Number(customer.downInstalment?.amount || down),
+          dueDate: customer.downInstalment?.dueDate || "Due now",
+          label: "Down payment",
+          instalmentId: customer.downInstalment?.id || null,
+        }
+      : nextInstalment;
+
+  return { nextDue, nextInstalment };
+}
+
+export function portalView(customer) {
+  const targets = paymentTargets(customer);
+  return {
+    id: customer.id,
+    code: customer.customerId,
+    name: customer.name,
+    phone: customer.phone,
+    verified: true,
+    city: customer.locationPin,
+    mapUrl: /^https?:\/\//i.test(customer.locationPin || "")
+      ? customer.locationPin
+      : "",
+    idDocumentUrl: customer.idDocument || "",
+    productName: customer.productName,
+    products: customer.products || [],
+    productPrice: customer.productPrice,
+    downPayment: customer.downPayment,
+    remainingAmount: customer.remainingAmount,
+    duration: customer.duration,
+    monthlyAmount: customer.monthlyAmount,
+    startDate: String(customer.createdAt || "").slice(0, 10),
+    paidDownPayment: customer.paidDownPayment,
+    paidMonths: customer.paidMonths || [],
+    paymentMethod: customer.paymentMethod,
+    bank: customer.bank,
+    contractId: customer.contractId || "",
+    location: customer.locationPin,
+    product: customer.productName,
+    amount: targets.nextDue?.amount || 0,
+    dueDate: targets.nextDue?.dueDate || "No payment due",
+    nextDue: targets.nextDue,
+    nextInstalment: targets.nextInstalment,
+  };
+}
+
+export async function notifyDownPayment(payload) {
+  const response = await fetch("/api/notify", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok || !data.ok) {
+    throw new Error(data.error || "Telegram notification failed");
+  }
+}
+
+async function uploadToBucket(bucket, file, folder) {
+  const extension = file.name.split(".").pop()?.toLowerCase() || "jpg";
+  const safeExtension = /^[a-z0-9]+$/.test(extension) ? extension : "jpg";
+  const path = `${folder}/${crypto.randomUUID()}.${safeExtension}`;
+  const { error } = await supabase.storage.from(bucket).upload(path, file, {
+    upsert: false,
+    contentType: file.type || "application/octet-stream",
+  });
+  if (error) fail(error);
+  return path;
+}
+
+export async function listProducts() {
+  const { data, error } = await supabase
+    .from("products")
+    .select("id, name, description, price, image_path, is_active, created_at")
+    .eq("is_active", true)
+    .order("created_at", { ascending: false });
+  if (error) fail(error);
+  return (data || []).map(mapProduct);
+}
+
+export async function saveProduct({ name, price, sellerType, file }) {
+  let imagePath = null;
+  if (file) {
+    const path = await uploadToBucket("product-images", file, "products");
+    const { data: publicUrlData } = supabase.storage
+      .from("product-images")
+      .getPublicUrl(path);
+    imagePath = publicUrlData.publicUrl;
+  }
+
+  const { data, error } = await supabase
+    .from("products")
+    .insert({
+      name,
+      price,
+      description:
+        sellerType === "normal"
+          ? "__seller_type_normal__"
+          : "__seller_type_noon__",
+      image_path: imagePath,
+      is_active: true,
+    })
+    .select("id, name, description, price, image_path, is_active, created_at")
+    .single();
+
+  if (error) fail(error);
+  return mapProduct(data);
+}
+
+export async function deactivateProduct(id) {
+  const { error } = await supabase
+    .from("products")
+    .update({ is_active: false })
+    .eq("id", id);
+  if (error) fail(error);
+}
+
+export async function listBanks() {
+  const { data, error } = await supabase
+    .from("bank_accounts")
+    .select("id, bank_name, account_name, iban, instructions, is_active")
+    .eq("is_active", true)
+    .order("created_at", { ascending: false });
+  if (error) fail(error);
+  return (data || []).map((item) => mapBank(item));
+}
+
+export async function saveBank({ bankName, accountName, iban, instructions }) {
+  const { error } = await supabase.from("bank_accounts").insert({
+    bank_name: bankName.trim(),
+    account_name: accountName.trim(),
+    iban: iban.trim(),
+    instructions: instructions.trim(),
+    is_active: true,
+  });
+  if (error) fail(error);
+}
+
+export async function deactivateBank(id) {
+  const { error } = await supabase
+    .from("bank_accounts")
+    .update({ is_active: false })
+    .eq("id", id);
+  if (error) fail(error);
+}
+
+async function hydrateCustomers(rows) {
+  return Promise.all(
+    (rows || []).map(async (row) =>
+      mapCustomer(row, await signedUrl("customer-documents", row.id_document_path))
+    )
+  );
+}
+
+export async function listCustomers(archived = false) {
+  let query = supabase
+    .from("customers")
+    .select(CUSTOMER_SELECT)
+    .order("created_at", { ascending: false });
+  query = archived
+    ? query.not("archived_at", "is", null)
+    : query.is("archived_at", null);
+  const { data, error } = await query;
+  if (error) fail(error);
+  return hydrateCustomers(data);
+}
+
+export async function getCustomerByCode(code) {
+  const { data, error } = await supabase
+    .from("customers")
+    .select(CUSTOMER_SELECT)
+    .eq("customer_code", code)
+    .is("archived_at", null)
+    .maybeSingle();
+  if (error) fail(error);
+  if (!data) return null;
+  return mapCustomer(
+    data,
+    await signedUrl("customer-documents", data.id_document_path)
+  );
+}
+
+export async function createCustomer({
+  name,
+  phone,
+  locationPin,
+  idFile,
+  products,
+  downPayment,
+  duration,
+  paymentMethod,
+  bankAccountId,
+  createdBy,
+}) {
+  let idDocumentPath = "";
+  if (idFile) {
+    idDocumentPath = await uploadToBucket("customer-documents", idFile, "ids");
+  }
+
+  const { data, error } = await supabase.rpc("create_customer_plan", {
+    payload: {
+      name,
+      phone,
+      location_pin: locationPin,
+      id_document_path: idDocumentPath,
+      payment_method: paymentMethod,
+      bank_account_id: bankAccountId,
+      down_payment: Number(downPayment),
+      duration_months: Number(duration),
+      created_by: createdBy,
+      products: products.map((item) => ({ id: item.id })),
+    },
+  });
+
+  if (error) fail(error);
+  return data;
+}
+
+export async function setCustomerArchived(id, archived) {
+  const { error } = await supabase.rpc("set_customer_archived", {
+    p_id: id,
+    p_archived: archived,
+  });
+  if (error) fail(error);
+}
+
+export async function listPayments() {
+  const { data, error } = await supabase
+    .from("payments")
+    .select(
+      "id, customer_id, instalment_id, contract_id, amount, payment_method, receipt_path, cardholder_name, status, reviewed_at, created_at, customers(customer_code), instalments(month_number)"
+    )
+    .order("created_at", { ascending: false });
+  if (error) fail(error);
+  return Promise.all(
+    (data || []).map(async (row) =>
+      mapPayment(row, await signedUrl("payment-receipts", row.receipt_path))
+    )
+  );
+}
+
+export async function createPayment({
+  customerUuid,
+  contractId,
+  instalmentId,
+  amount,
+  method,
+  receiptFile,
+  cardholderName,
+  bankAccountId,
+}) {
+  if (!instalmentId) {
+    throw new Error("This payment is not linked to an instalment yet.");
+  }
+
+  const { data: instalment, error: instalmentError } = await supabase
+    .from("instalments")
+    .select("id, amount, status, paid_at, contract_id")
+    .eq("id", instalmentId)
+    .maybeSingle();
+
+  if (instalmentError) fail(instalmentError);
+  if (!instalment) throw new Error("Instalment was not found.");
+  if (instalment.status === "paid" || instalment.paid_at) {
+    throw new Error("This instalment is already paid.");
+  }
+  if (Math.abs(Number(instalment.amount) - Number(amount)) > 0.009) {
+    throw new Error("Amount does not match the instalment.");
+  }
+
+  const { data: pending, error: pendingError } = await supabase
+    .from("payments")
+    .select("id")
+    .eq("instalment_id", instalmentId)
+    .eq("status", "pending")
+    .limit(1);
+  if (pendingError) fail(pendingError);
+  if (pending?.length) {
+    throw new Error(
+      "A payment request for this amount is already waiting for admin approval."
+    );
+  }
+
+  let receiptPath = null;
+  if (receiptFile) {
+    receiptPath = await uploadToBucket("payment-receipts", receiptFile, "receipts");
+  }
+
+  const { error } = await supabase.from("payments").insert({
+    customer_id: customerUuid,
+    contract_id: contractId || instalment.contract_id,
+    instalment_id: instalmentId,
+    amount,
+    payment_method: method,
+    receipt_path: receiptPath,
+    cardholder_name: cardholderName || null,
+    bank_account_id: method === "bank" ? bankAccountId || null : null,
+    status: "pending",
+  });
+
+  if (error) fail(error);
+}
+
+export async function reviewPayment(id, status) {
+  const { error } = await supabase.rpc("review_payment", {
+    p_id: id,
+    p_status: status,
+  });
+  if (error) fail(error);
+}
+
+export async function listSupervisors() {
+  const { data, error } = await supabase
+    .from("supervisors")
+    .select("id, name, email, username, created_at")
+    .order("created_at", { ascending: false });
+  if (error) fail(error);
+  return (data || []).map((item) => ({
+    id: item.id,
+    name: item.name,
+    email: item.email || "",
+    username: item.username,
+    createdAt: item.created_at,
+  }));
+}
+
+export async function saveSupervisor({ name, email, username }) {
+  const { error } = await supabase.from("supervisors").insert({
+    name: name.trim(),
+    email: email.trim(),
+    username: username.trim(),
+  });
+  if (error) fail(error);
+}
+
+export async function deleteSupervisor(id) {
+  const { error } = await supabase.from("supervisors").delete().eq("id", id);
+  if (error) fail(error);
+}

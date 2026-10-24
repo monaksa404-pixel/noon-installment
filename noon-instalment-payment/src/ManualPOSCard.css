@@ -1,0 +1,353 @@
+
+.pos-card-panel {
+  width: 100%;
+  margin-top: 18px;
+  padding: 20px;
+  box-sizing: border-box;
+  border: 1px solid #e4e4e4;
+  border-radius: 16px;
+  background: #fff;
+  color: #252525;
+}
+
+.pos-card-heading {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.pos-card-icon {
+  width: 48px;
+  height: 48px;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  border-radius: 11px;
+  background: #ffde21;
+}
+
+.pos-card-heading h3 {
+  margin: 0 0 6px;
+  font-size: 19px;
+}
+
+.pos-card-heading p {
+  margin: 0;
+  color: #777;
+  font-size: 12px;
+}
+
+.pos-yellow-line {
+  height: 3px;
+  margin: 22px 0;
+  background: #ffde21;
+}
+
+.pos-accepted-label {
+  margin-bottom: 12px;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.pos-card-logos {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.pos-card-logos > span {
+  height: 42px;
+  padding: 0 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  border: 1px solid #e2e2e2;
+  border-radius: 8px;
+  background: #fff;
+}
+
+.pos-visa {
+  color: #1a1f71;
+  font-size: 23px;
+  font-weight: 900;
+  font-style: italic;
+}
+
+.pos-mastercard {
+  position: relative;
+}
+
+.pos-mastercard i {
+  width: 19px;
+  height: 19px;
+  border-radius: 50%;
+}
+
+.pos-circle-red {
+  background: #eb001b;
+  margin-right: -10px;
+}
+
+.pos-circle-orange {
+  background: #f79e1b;
+}
+
+.pos-mastercard b {
+  font-size: 10px;
+}
+
+.pos-mada {
+  color: #087a57;
+  font-size: 22px;
+  font-weight: 800;
+  font-style: italic;
+}
+
+.pos-preview-caption {
+  margin: 23px 0 12px;
+  color: #777;
+  font-size: 12px;
+}
+
+.pos-black-card {
+  min-height: 190px;
+  padding: 20px;
+  box-sizing: border-box;
+  border-radius: 17px;
+  background: linear-gradient(135deg, #191919, #333);
+  color: #fff;
+  overflow: hidden;
+}
+
+.pos-card-brand {
+  color: #ffde21;
+  font-size: 20px;
+  font-weight: 900;
+}
+
+.pos-card-chip {
+  margin-top: 12px;
+  color: #ffde21;
+  font-size: 24px;
+}
+
+.pos-card-number {
+  margin-top: 10px;
+  font-size: 18px;
+  letter-spacing: 1px;
+}
+
+.pos-card-bottom {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 22px;
+}
+
+.pos-card-bottom small {
+  display: block;
+  margin-bottom: 7px;
+  color: #c8c8c8;
+  font-size: 10px;
+}
+
+.pos-card-bottom strong {
+  display: block;
+  max-width: 210px;
+  overflow-wrap: anywhere;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.pos-card-expiry {
+  text-align: right;
+}
+
+.pos-amount-box {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 20px;
+  padding: 15px;
+  border-radius: 11px;
+  background: #fff9d6;
+}
+
+.pos-amount-box span {
+  font-size: 13px;
+}
+
+.pos-amount-box strong {
+  font-size: 19px;
+}
+
+.pos-form {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  margin-top: 20px;
+}
+
+.pos-form label {
+  margin-top: 5px;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.pos-form input {
+  width: 100%;
+  min-width: 0;
+  height: 46px;
+  padding: 0 14px;
+  box-sizing: border-box;
+  border: 1px solid #d8d8d8;
+  border-radius: 24px;
+  background: #fff;
+  color: #252525;
+  font: inherit;
+  font-size: 13px;
+}
+
+.pos-form input:disabled {
+  background: #f5f5f5;
+  color: #777;
+  cursor: not-allowed;
+}
+
+.pos-expiry-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.pos-expiry-row > div {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+}
+
+.pos-notice {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin-top: 13px;
+  padding: 12px;
+  border: 1px solid #e7dfad;
+  border-radius: 10px;
+  background: #fffbea;
+  color: #5b501a;
+}
+
+.pos-notice svg {
+  flex-shrink: 0;
+}
+
+.pos-notice p {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.pos-submit-button {
+  min-height: 49px;
+  margin-top: 12px;
+  padding: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  border: none;
+  border-radius: 26px;
+  background: #ffde21;
+  color: #171717;
+  font-size: 14px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.pos-submit-button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.pos-demo-note {
+  margin: 10px 0 0;
+  color: #777;
+  text-align: center;
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.pos-request-success {
+  margin-top: 22px;
+  padding: 22px 12px;
+  border-radius: 12px;
+  background: #f3fbf4;
+  text-align: center;
+}
+
+.pos-request-success svg {
+  color: #198754;
+}
+
+.pos-request-success h3 {
+  margin: 10px 0;
+}
+
+.pos-request-success p {
+  color: #555;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.pos-request-success span {
+  display: inline-block;
+  padding: 7px 12px;
+  border-radius: 20px;
+  background: #fff0c2;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.pos-request-success button {
+  display: block;
+  margin: 15px auto 0;
+  padding: 10px 16px;
+  border: 1px solid #ddd;
+  border-radius: 20px;
+  background: #fff;
+  cursor: pointer;
+}
+
+@media (max-width: 480px) {
+  .pos-card-panel {
+    padding: 14px;
+  }
+
+  .pos-card-heading h3 {
+    font-size: 16px;
+  }
+
+  .pos-black-card {
+    min-height: 178px;
+    padding: 17px;
+  }
+
+  .pos-card-number {
+    font-size: 15px;
+    letter-spacing: 0;
+  }
+
+  .pos-card-bottom strong {
+    font-size: 12px;
+  }
+
+  .pos-expiry-row {
+    gap: 8px;
+  }
+}

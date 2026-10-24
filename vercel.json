@@ -1,0 +1,8 @@
+{
+  "buildCommand": "npm install --prefix noon-instalment-payment && npm run build --prefix noon-instalment-payment",
+  "outputDirectory": "noon-instalment-payment/dist",
+  "framework": null,
+  "rewrites": [
+    { "source": "/((?!api/).*)", "destination": "/index.html" }
+  ]
+}

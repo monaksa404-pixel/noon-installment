@@ -1,0 +1,9 @@
+node_modules
+noon-instalment-payment/node_modules
+noon-instalment-payment/dist
+.vercel
+.env
+.env.local
+.env.*.local
+noon-instalment-payment/.env
+noon-instalment-payment/.env.local
