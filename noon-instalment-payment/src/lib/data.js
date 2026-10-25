@@ -3,7 +3,9 @@ import { supabase } from "./supabase.js";
 const CUSTOMER_SELECT = `
   id,
   customer_code,
+  name,
   full_name,
+  phone,
   mobile,
   city,
   address,
@@ -118,8 +120,8 @@ function mapCustomer(row, idDocument = "") {
   return {
     id: row.id,
     customerId: row.customer_code,
-    name: row.full_name || "",
-    phone: row.mobile || "",
+    name: row.full_name || row.name || "",
+    phone: row.mobile || row.phone || "",
     locationPin: row.location_pin || row.address || row.city || "",
     hasIdDocument: Boolean(row.id_document_path),
     idDocument,

@@ -127,6 +127,25 @@ create table if not exists public.supervisors (
   created_at timestamptz not null default now()
 );
 
+alter table public.customers add column if not exists name text;
+alter table public.customers add column if not exists full_name text;
+alter table public.customers add column if not exists phone text;
+alter table public.customers add column if not exists mobile text;
+alter table public.customers add column if not exists city text;
+alter table public.customers add column if not exists address text;
+alter table public.customers add column if not exists status text default 'active';
+alter table public.customer_products add column if not exists contract_id uuid;
+
+update public.customers
+set
+  full_name = coalesce(full_name, name),
+  name = coalesce(name, full_name),
+  mobile = coalesce(mobile, phone),
+  phone = coalesce(phone, mobile),
+  city = coalesce(city, location_pin),
+  address = coalesce(address, location_pin),
+  status = coalesce(status, 'active');
+
 create unique index if not exists payments_one_pending_instalment
 on public.payments (instalment_id)
 where status = 'pending' and instalment_id is not null;
@@ -219,7 +238,9 @@ begin
   join public.products p on p.id = (elem->>'id')::uuid;
 
   insert into public.customers (
+    name,
     full_name,
+    phone,
     mobile,
     city,
     address,
@@ -230,6 +251,8 @@ begin
     created_by
   ) values (
     btrim(payload->>'name'),
+    btrim(payload->>'name'),
+    btrim(payload->>'phone'),
     btrim(payload->>'phone'),
     left(btrim(payload->>'location_pin'), 120),
     btrim(payload->>'location_pin'),
@@ -418,6 +441,19 @@ grant select on public.customer_bank_assignments to anon, authenticated;
 grant select on public.customer_products to anon, authenticated;
 grant select, insert on public.payments to anon, authenticated;
 grant select, insert, delete on public.supervisors to anon, authenticated;
+do $$
+begin
+  if not exists (
+    select 1 from pg_constraint where conname = 'payments_instalment_id_fkey'
+  ) then
+    alter table public.payments
+      add constraint payments_instalment_id_fkey
+      foreign key (instalment_id) references public.instalments(id) on delete set null;
+  end if;
+end $$;
+
+notify pgrst, 'reload schema';
+
 grant execute on function public.generate_customer_code() to anon, authenticated;
 grant execute on function public.create_customer_plan(jsonb) to anon, authenticated;
 grant execute on function public.review_payment(uuid, text) to anon, authenticated;
