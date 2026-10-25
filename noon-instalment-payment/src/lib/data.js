@@ -160,12 +160,12 @@ function mapPayment(row, receiptUrl = "") {
   const month = instalment ? Number(instalment.month_number) : null;
   return {
     id: row.id,
-    customerId: customer?.customer_code || "",
+    customerId: customer?.customer_code || row.customer_code || "",
     customerUuid: row.customer_id,
-    kind: month === 0 ? "down_payment" : "instalment",
+    kind: row.kind || (month === 0 ? "down_payment" : "instalment"),
     month: month === 0 ? null : month,
     amount: Number(row.amount || 0),
-    method: row.payment_method || "",
+    method: row.payment_method || row.method || "",
     receiptUrl,
     cardholderName: row.cardholder_name || "",
     status: row.status,
@@ -456,19 +456,41 @@ export async function listPayments() {
   const { data, error } = await supabase
     .from("payments")
     .select(
-      "id, customer_id, instalment_id, contract_id, amount, payment_method, receipt_path, cardholder_name, status, reviewed_at, created_at, customers(customer_code), instalments(month_number)"
+      "id, customer_id, customer_code, instalment_id, contract_id, amount, payment_method, method, kind, receipt_path, cardholder_name, status, reviewed_at, created_at, customers(customer_code)"
     )
     .order("created_at", { ascending: false });
   if (error) fail(error);
+  const instalmentIds = [
+    ...new Set((data || []).map((row) => row.instalment_id).filter(Boolean)),
+  ];
+  const months = {};
+  if (instalmentIds.length) {
+    const { data: instalmentRows } = await supabase
+      .from("instalments")
+      .select("id, month_number")
+      .in("id", instalmentIds);
+    for (const item of instalmentRows || []) {
+      months[item.id] = Number(item.month_number);
+    }
+  }
   return Promise.all(
-    (data || []).map(async (row) =>
-      mapPayment(row, await signedUrl("payment-receipts", row.receipt_path))
-    )
+    (data || []).map(async (row) => {
+      const month = months[row.instalment_id];
+      return mapPayment(
+        {
+          ...row,
+          instalments:
+            month === undefined ? null : { month_number: month },
+        },
+        await signedUrl("payment-receipts", row.receipt_path)
+      );
+    })
   );
 }
 
 export async function createPayment({
   customerUuid,
+  customerCode,
   contractId,
   instalmentId,
   amount,
@@ -481,9 +503,21 @@ export async function createPayment({
     throw new Error("This payment is not linked to an instalment yet.");
   }
 
+  let code = String(customerCode || "").trim();
+  if (!code && customerUuid) {
+    const { data: customerRow, error: customerError } = await supabase
+      .from("customers")
+      .select("customer_code")
+      .eq("id", customerUuid)
+      .maybeSingle();
+    if (customerError) fail(customerError);
+    code = customerRow?.customer_code || "";
+  }
+  if (!code) throw new Error("Customer code is missing.");
+
   const { data: instalment, error: instalmentError } = await supabase
     .from("instalments")
-    .select("id, amount, status, paid_at, contract_id")
+    .select("id, amount, status, paid_at, contract_id, month_number")
     .eq("id", instalmentId)
     .maybeSingle();
 
@@ -514,15 +548,21 @@ export async function createPayment({
     receiptPath = await uploadToBucket("payment-receipts", receiptFile, "receipts");
   }
 
+  const paymentKind =
+    Number(instalment.month_number) === 0 ? "down_payment" : "instalment";
+
   const { error } = await supabase.from("payments").insert({
     customer_id: customerUuid,
+    customer_code: code,
     contract_id: contractId || instalment.contract_id,
     instalment_id: instalmentId,
     amount,
     payment_method: method,
+    method,
+    kind: paymentKind,
     receipt_path: receiptPath,
     cardholder_name: cardholderName || null,
-    bank_account_id: method === "bank" ? bankAccountId || null : null,
+    bank_account_id: bankAccountId || null,
     status: "pending",
   });
 

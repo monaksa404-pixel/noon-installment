@@ -150,6 +150,7 @@ export default function App() {
     try {
       await createPayment({
         customerUuid: customer.id,
+        customerCode: customer.code,
         contractId: customer.contractId,
         instalmentId: paymentTarget.instalmentId,
         amount: paymentTarget.amount,
@@ -191,6 +192,7 @@ export default function App() {
     }
     await createPayment({
       customerUuid: customer.id,
+      customerCode: customer.code,
       contractId: customer.contractId,
       instalmentId: paymentTarget.instalmentId,
       amount: paymentTarget.amount,
