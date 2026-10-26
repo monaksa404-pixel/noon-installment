@@ -517,16 +517,43 @@ export async function updateCustomerDetails({
   phone,
   locationPin,
   paymentMethod,
+  idFile,
+  products,
+  downPayment,
+  duration,
 }) {
-  const { error } = await supabase.rpc("update_customer_details", {
+  let idDocumentPath = "";
+  if (idFile) {
+    idDocumentPath = await uploadToBucket("customer-documents", idFile, "ids");
+  }
+  const methods = String(paymentMethod || "").trim();
+  const primary = methods.includes("bank") ? "bank" : "card";
+  const payload = {
+    name,
+    phone,
+    location_pin: locationPin,
+    payment_method: methods,
+    products: (products || []).map((item) => ({ id: item.id || item })),
+    down_payment: Number(downPayment),
+    duration_months: Number(duration),
+  };
+  if (idDocumentPath) payload.id_document_path = idDocumentPath;
+  let { error } = await supabase.rpc("update_customer_details", {
     p_id: id,
-    payload: {
-      name,
-      phone,
-      location_pin: locationPin,
-      payment_method: paymentMethod,
-    },
+    payload,
   });
+  if (
+    error &&
+    /payment_method_check/i.test(error.message) &&
+    payload.payment_method !== primary
+  ) {
+    payload.payment_method = primary;
+    const retry = await supabase.rpc("update_customer_details", {
+      p_id: id,
+      payload,
+    });
+    error = retry.error;
+  }
   if (error) fail(error);
 }
 
@@ -745,16 +772,22 @@ export async function createCustomer({
     created_by: createdBy,
     products: products.map((item) => ({ id: item.id })),
   };
+  let limitedMethod = false;
   let { data, error } = await supabase.rpc("create_customer_plan", { payload });
-  if (error && /select a payment method/i.test(error.message) && payload.payment_method !== primary) {
+  if (
+    error &&
+    /select a payment method|payment_method_check/i.test(error.message) &&
+    payload.payment_method !== primary
+  ) {
     payload.payment_method = primary;
+    limitedMethod = true;
     const retry = await supabase.rpc("create_customer_plan", { payload });
     data = retry.data;
     error = retry.error;
   }
 
   if (error) fail(error);
-  return data;
+  return { ...data, limitedMethod };
 }
 
 export async function setCustomerArchived(id, archived) {
@@ -858,7 +891,7 @@ export async function createPayment({
   if (instalment.status === "paid" || instalment.paid_at) {
     throw new Error("This instalment is already paid.");
   }
-  if (!instalment.enabled) {
+  if (instalment.enabled === false) {
     throw new Error("This instalment is not enabled yet.");
   }
   if (Math.abs(Number(instalment.amount) - Number(amount)) > 0.009) {
@@ -886,7 +919,7 @@ export async function createPayment({
   const paymentKind =
     Number(instalment.month_number) === 0 ? "down_payment" : "instalment";
 
-  const { error } = await supabase.from("payments").insert({
+  const row = {
     customer_id: customerUuid,
     customer_code: code,
     contract_id: contractId || instalment.contract_id,
@@ -899,8 +932,15 @@ export async function createPayment({
     cardholder_name: cardholderName || null,
     bank_account_id: bankAccountId || null,
     status: "pending",
-  });
-
+  };
+  let { error } = await supabase.from("payments").insert(row);
+  if (error && /column|schema cache/i.test(error.message)) {
+    const core = { ...row };
+    delete core.method;
+    delete core.kind;
+    const retry = await supabase.from("payments").insert(core);
+    error = retry.error;
+  }
   if (error) fail(error);
 }
 

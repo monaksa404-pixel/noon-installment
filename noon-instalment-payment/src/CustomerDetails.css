@@ -693,11 +693,26 @@
   font-size: 14px;
 }
 
+.cd-top {
+  padding: 2px 2px 12px;
+}
+
+.cd-top h3 {
+  margin: 0 0 4px;
+  font-size: 22px;
+}
+
+.customer-details .cd-product-list li span.cd-seller-noon,
+.customer-details .cd-product-list li span.cd-seller-normal,
 .cd-seller-noon,
 .cd-seller-normal {
   display: inline-flex;
+  flex-flow: row nowrap;
   align-items: center;
   gap: 4px;
+  width: max-content;
+  max-width: 100%;
+  white-space: nowrap;
   font-size: 12px;
   font-weight: 700;
 }

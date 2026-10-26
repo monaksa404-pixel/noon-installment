@@ -516,6 +516,17 @@
   font-size: 11px;
 }
 
+.admin-id-button {
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+  user-select: none;
+}
+
 .admin-table tbody tr:last-child td {
   border-bottom: 0;
 }

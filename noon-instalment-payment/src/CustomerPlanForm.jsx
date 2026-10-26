@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { createCustomer, notifyDownPayment } from "./lib/data.js";
+import { createCustomer, notifyDownPayment, updateCustomerDetails } from "./lib/data.js";
 import "./CustomerPlanForm.css";
 
 const DURATIONS = [3, 6, 12, 18, 24];
@@ -31,10 +31,14 @@ export default function CustomerPlanForm({
   const [message, setMessage] = useState("");
   const [saving, setSaving] = useState(false);
   const [formKey, setFormKey] = useState(0);
+  const [productQuery, setProductQuery] = useState("");
 
   const catalog = useMemo(
     () => [...products].sort((left, right) => left.name.localeCompare(right.name)),
     [products]
+  );
+  const visibleProducts = catalog.filter((product) =>
+    product.name.toLowerCase().includes(productQuery.trim().toLowerCase())
   );
   const chosen = useMemo(
     () => catalog.filter((product) => selected.includes(product.id)),
@@ -107,6 +111,9 @@ export default function CustomerPlanForm({
       });
 
       let notice = `Customer saved. Code: ${created.customer_code}`;
+      if (created.limitedMethod) {
+        notice += " Both methods could not be stored yet. Run supabase/schema.sql, then edit this customer and save both methods.";
+      }
       if (Number(created.down_payment) > 0) {
         try {
           await notifyDownPayment({
@@ -133,8 +140,10 @@ export default function CustomerPlanForm({
       setSelected([]);
       setDownPayment("");
       setDuration("12");
-      setPaymentMethod("bank");
+      setPayBank(true);
+      setPayCard(false);
       setBankAccountId("");
+      setProductQuery("");
       setFormKey((value) => value + 1);
       setMessage(notice);
       if (onSaved) await onSaved(created);
@@ -204,11 +213,19 @@ export default function CustomerPlanForm({
         </label>
         <div className={fullClass}>
           <span>Product Selection *</span>
+          <input
+            value={productQuery}
+            onChange={(e) => setProductQuery(e.target.value)}
+            placeholder="Search products"
+          />
           <div className="plan-products">
             {products.length === 0 && (
               <small>No products yet. Add a product first.</small>
             )}
-            {catalog.map((product) => (
+            {visibleProducts.length === 0 && products.length > 0 && (
+              <small>No product matches that search.</small>
+            )}
+            {visibleProducts.map((product) => (
               <label
                 className={`plan-product${selected.includes(product.id) ? " is-selected" : ""}`}
                 key={product.id}
@@ -226,6 +243,9 @@ export default function CustomerPlanForm({
               </label>
             ))}
           </div>
+          {chosen.length > 0 && (
+            <small>{chosen.length} selected: {chosen.map((product) => product.name).join(", ")}</small>
+          )}
         </div>
         <label className={fieldClass}>
           Total price
@@ -300,6 +320,141 @@ export default function CustomerPlanForm({
       <button className={buttonClass} type="submit" disabled={saving || products.length === 0}>
         {saving ? "Saving..." : "Save customer"}
       </button>
+    </form>
+  );
+}
+
+export function CustomerEditForm({ customer, products, onCancel, onSaved }) {
+  const catalog = useMemo(
+    () => [...products].sort((left, right) => left.name.localeCompare(right.name)),
+    [products]
+  );
+  const [name, setName] = useState(customer.name || "");
+  const [phone, setPhone] = useState(customer.phone || "");
+  const [locationPin, setLocationPin] = useState(customer.locationPin || "");
+  const [payBank, setPayBank] = useState(
+    !customer.paymentMethods?.length || customer.paymentMethods.includes("bank")
+  );
+  const [payCard, setPayCard] = useState(Boolean(customer.paymentMethods?.includes("card")));
+  const [selected, setSelected] = useState(
+    (customer.products || []).map((product) => product.id).filter(Boolean)
+  );
+  const [downPayment, setDownPayment] = useState(String(customer.downPayment ?? ""));
+  const [duration, setDuration] = useState(String(customer.duration || 12));
+  const [idFile, setIdFile] = useState(null);
+  const [productQuery, setProductQuery] = useState("");
+  const [message, setMessage] = useState("");
+  const [saving, setSaving] = useState(false);
+  const paymentMethod = [payBank && "bank", payCard && "card"].filter(Boolean).join(",");
+  const visibleProducts = catalog.filter((product) =>
+    product.name.toLowerCase().includes(productQuery.trim().toLowerCase())
+  );
+  const chosen = catalog.filter((product) => selected.includes(product.id));
+
+  async function handleSubmit(event) {
+    event.preventDefault();
+    if (!paymentMethod) {
+      setMessage("Select at least one payment method.");
+      return;
+    }
+    if (!chosen.length) {
+      setMessage("Select at least one product.");
+      return;
+    }
+    setSaving(true);
+    setMessage("");
+    try {
+      await updateCustomerDetails({
+        id: customer.id,
+        name: name.trim(),
+        phone: phone.trim(),
+        locationPin: locationPin.trim(),
+        paymentMethod,
+        idFile,
+        products: chosen,
+        downPayment: Number(downPayment || 0),
+        duration: Number(duration),
+      });
+      if (onSaved) await onSaved();
+    } catch (error) {
+      setMessage(error.message || "Customer could not be updated.");
+      setSaving(false);
+    }
+  }
+
+  return (
+    <form className="plan-edit" onSubmit={handleSubmit}>
+      <h2>Edit customer</h2>
+      {message && <div className="plan-message">{message}</div>}
+      <label className="plan-field">
+        Name
+        <input value={name} onChange={(e) => setName(e.target.value)} required />
+      </label>
+      <label className="plan-field">
+        Mobile
+        <input value={phone} onChange={(e) => setPhone(e.target.value)} required />
+      </label>
+      <label className="plan-field">
+        Location
+        <input value={locationPin} onChange={(e) => setLocationPin(e.target.value)} />
+      </label>
+      <label className="plan-check">
+        <input type="checkbox" checked={payBank} onChange={(e) => setPayBank(e.target.checked)} />
+        Bank Transfer
+      </label>
+      <label className="plan-check">
+        <input type="checkbox" checked={payCard} onChange={(e) => setPayCard(e.target.checked)} />
+        Credit/Debit Card
+      </label>
+      <label className="plan-field">
+        ID document
+        <input type="file" accept="image/*,.pdf" onChange={(e) => setIdFile(e.target.files?.[0] || null)} />
+      </label>
+      <label className="plan-field">
+        Down payment
+        <input type="number" min="0" step="0.01" value={downPayment} onChange={(e) => setDownPayment(e.target.value)} />
+      </label>
+      <label className="plan-field">
+        Instalment plan
+        <select value={duration} onChange={(e) => setDuration(e.target.value)}>
+          {DURATIONS.map((monthsOption) => (
+            <option key={monthsOption} value={monthsOption}>{monthsOption} months</option>
+          ))}
+        </select>
+      </label>
+      <div className="plan-field">
+        <span>Products</span>
+        <input value={productQuery} onChange={(e) => setProductQuery(e.target.value)} placeholder="Search products" />
+        <div className="plan-products">
+          {visibleProducts.map((product) => (
+            <label
+              className={`plan-product${selected.includes(product.id) ? " is-selected" : ""}`}
+              key={product.id}
+            >
+              <input
+                type="checkbox"
+                checked={selected.includes(product.id)}
+                onChange={() =>
+                  setSelected((current) =>
+                    current.includes(product.id)
+                      ? current.filter((item) => item !== product.id)
+                      : [...current, product.id]
+                  )
+                }
+              />
+              {product.image ? <img className="plan-product-image" src={product.image} alt="" /> : null}
+              <span>{product.name}</span>
+              <b>{money(product.price)}</b>
+            </label>
+          ))}
+        </div>
+      </div>
+      <div className="plan-edit-actions">
+        <button type="button" className="plan-edit-cancel" onClick={onCancel}>Cancel</button>
+        <button type="submit" className="plan-edit-save" disabled={saving}>
+          {saving ? "Saving..." : "Save"}
+        </button>
+      </div>
     </form>
   );
 }

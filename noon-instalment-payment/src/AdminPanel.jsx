@@ -1,7 +1,7 @@
 import NoonLogo from "./NoonLogo";
 import "./AdminPanel.css";
-import { useEffect, useMemo, useState } from "react";
-import CustomerPlanForm from "./CustomerPlanForm";
+import { useEffect, useMemo, useRef, useState } from "react";
+import CustomerPlanForm, { CustomerEditForm } from "./CustomerPlanForm";
 import {
   deactivateBank,
   deactivateProduct,
@@ -17,7 +17,6 @@ import {
   saveBank,
   saveProduct,
   saveSupervisor,
-  updateCustomerDetails,
   updateProduct,
   setCustomerArchived,
 } from "./lib/data.js";
@@ -1267,7 +1266,7 @@ export default function AdminPanel({ onLogout }) {
                     <tbody>
                       {archived.map((customer) => (
                         <tr key={customer.customerId}>
-                          <td>{customer.customerId}</td>
+                          <td><CopyCode value={customer.customerId} /></td>
                           <td>{customer.name}</td>
                           <td>{customer.phone}</td>
                           <td>{customer.productName}</td>
@@ -1360,77 +1359,18 @@ export default function AdminPanel({ onLogout }) {
 
       {editingCustomer && (
         <div className="admin-modal-backdrop" onClick={() => setEditingCustomer(null)}>
-          <form
-            className="admin-modal"
-            onClick={(event) => event.stopPropagation()}
-            onSubmit={async (event) => {
-              event.preventDefault();
-              const form = new FormData(event.currentTarget);
-              const methods = [
-                form.get("payBank") ? "bank" : "",
-                form.get("payCard") ? "card" : "",
-              ].filter(Boolean);
-              if (!methods.length) {
-                notify("Select at least one payment method.");
-                return;
-              }
-              try {
-                await updateCustomerDetails({
-                  id: editingCustomer.id,
-                  name: String(form.get("name") || ""),
-                  phone: String(form.get("phone") || ""),
-                  locationPin: String(form.get("locationPin") || ""),
-                  paymentMethod: methods.join(","),
-                });
+          <div className="admin-modal" onClick={(event) => event.stopPropagation()}>
+            <CustomerEditForm
+              customer={editingCustomer}
+              products={products}
+              onCancel={() => setEditingCustomer(null)}
+              onSaved={async () => {
                 setEditingCustomer(null);
                 await refresh();
                 notify("Customer updated.");
-              } catch (error) {
-                notify(error.message);
-              }
-            }}
-          >
-            <h2>Edit customer</h2>
-            <label>
-              Name
-              <input name="name" defaultValue={editingCustomer.name} required />
-            </label>
-            <label>
-              Mobile
-              <input name="phone" defaultValue={editingCustomer.phone} required />
-            </label>
-            <label>
-              Location
-              <input name="locationPin" defaultValue={editingCustomer.locationPin} />
-            </label>
-            <label className="admin-check">
-              <input
-                type="checkbox"
-                name="payBank"
-                defaultChecked={
-                  !editingCustomer.paymentMethods?.length ||
-                  editingCustomer.paymentMethods.includes("bank")
-                }
-              />
-              Bank Transfer
-            </label>
-            <label className="admin-check">
-              <input
-                type="checkbox"
-                name="payCard"
-                defaultChecked={editingCustomer.paymentMethods?.includes("card")}
-              />
-              Credit/Debit Card
-            </label>
-            <div className="admin-modal-actions">
-              <button type="button" className="admin-secondary-button" onClick={() => setEditingCustomer(null)}>
-                Cancel
-              </button>
-              <button type="submit" className="admin-primary-button">
-                Save
-              </button>
-            </div>
-          </form>
+              }}
+            />
+          </div>
         </div>
       )}
 
@@ -1719,7 +1659,55 @@ function Detail({ label, value }) {
   );
 }
 
+function CopyCode({ value }) {
+  const [copied, setCopied] = useState(false);
+  const holdTimer = useRef(null);
+
+  async function copy() {
+    try {
+      await navigator.clipboard.writeText(String(value || ""));
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1200);
+    } catch {
+      setCopied(false);
+    }
+  }
+
+  return (
+    <button
+      type="button"
+      className="admin-id-button"
+      title="Copy customer code"
+      onClick={copy}
+      onPointerDown={() => {
+        clearTimeout(holdTimer.current);
+        holdTimer.current = setTimeout(copy, 500);
+      }}
+      onPointerUp={() => clearTimeout(holdTimer.current)}
+      onPointerLeave={() => clearTimeout(holdTimer.current)}
+      onContextMenu={(event) => {
+        event.preventDefault();
+        copy();
+      }}
+    >
+      {copied ? "Copied" : value}
+    </button>
+  );
+}
+
 function CustomerTable({ customers, onView, onArchive, onDelete, onEdit }) {
+  const [copiedId, setCopiedId] = useState("");
+  const holdTimer = useRef(null);
+
+  async function copyId(customerId) {
+    try {
+      await navigator.clipboard.writeText(String(customerId || ""));
+      setCopiedId(customerId);
+      setTimeout(() => setCopiedId(""), 1200);
+    } catch {
+      setCopiedId("");
+    }
+  }
   if (!customers.length) {
     return (
       <EmptyState
@@ -1747,7 +1735,26 @@ function CustomerTable({ customers, onView, onArchive, onDelete, onEdit }) {
         <tbody>
           {customers.map((customer) => (
             <tr key={customer.customerId}>
-              <td>{customer.customerId}</td>
+              <td>
+                <button
+                  type="button"
+                  className="admin-id-button"
+                  title="Copy customer code"
+                  onClick={() => copyId(customer.customerId)}
+                  onPointerDown={() => {
+                    clearTimeout(holdTimer.current);
+                    holdTimer.current = setTimeout(() => copyId(customer.customerId), 500);
+                  }}
+                  onPointerUp={() => clearTimeout(holdTimer.current)}
+                  onPointerLeave={() => clearTimeout(holdTimer.current)}
+                  onContextMenu={(event) => {
+                    event.preventDefault();
+                    copyId(customer.customerId);
+                  }}
+                >
+                  {copiedId === customer.customerId ? "Copied" : customer.customerId}
+                </button>
+              </td>
               <td>{customer.name}</td>
               <td>{customer.phone}</td>
               <td>{customer.productName}</td>

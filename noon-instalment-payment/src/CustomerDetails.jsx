@@ -2,7 +2,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import NoonLogo from "./NoonLogo";
 import {
-  UserRound,
   Phone,
   MapPin,
   ShieldCheck,
@@ -106,10 +105,6 @@ export default function CustomerDetails({
   const [popup, setPopup] = useState(null);
   const [copied, setCopied] = useState(false);
   const holdTimer = useRef(null);
-  const methods = (customer.paymentMethods || []).filter(
-    (method) => method === "bank" || method === "card"
-  );
-
   const latestId = activity[0]?.id || "";
   useEffect(() => {
     const latest = activity[0];
@@ -181,80 +176,62 @@ export default function CustomerDetails({
           </button>
         )}
 
-        <section className="cd-profile-grid">
-          <div className="cd-card cd-profile-card">
-            <div className="cd-section-heading">
-              <div className="cd-icon-box">
-                <UserRound size={18} />
-              </div>
-              <div>
-                <h2>Customer Details</h2>
-                <p>Registered information</p>
-              </div>
-            </div>
-            <div className="cd-person">
-              <div className="cd-person-info">
-                <h3>{customer.name}</h3>
-                <div className="cd-phone">
-                  <Phone size={12} />
-                  <span>{customer.phone || "Number not provided"}</span>
-                </div>
-              </div>
-            </div>
-            <div className="cd-verified-row">
-              <ShieldCheck size={13} />
-              <span
-                className={
-                  customer.verified
-                    ? "cd-status cd-status-paid"
-                    : "cd-status cd-status-pending"
-                }
-              >
-                {customer.verified ? "Verified" : "Pending"}
-              </span>
-            </div>
-            <div className="cd-code-top">
-              <div
-                className="cd-code"
-                onPointerDown={startHold}
-                onPointerUp={stopHold}
-                onPointerLeave={stopHold}
-                onPointerCancel={stopHold}
-                onContextMenu={(event) => {
-                  event.preventDefault();
-                  copyCode();
-                }}
-              >
-                <span>Customer Code</span>
-                <strong>{copied ? "Copied" : customer.code}</strong>
-              </div>
-              <button
-                type="button"
-                className="cd-statement-button"
-                onClick={() => setStatementOpen((open) => !open)}
-              >
-                Statement
-              </button>
-            </div>
-            {statementOpen && (
-              <div className="cd-statement">
-                <h2>Statement</h2>
-                {activity.length === 0 && <p>No activity yet.</p>}
-                {activity.map((item) => (
-                  <div className={`cd-activity is-${item.tone}`} key={item.id}>
-                    <strong>{item.text}</strong>
-                    <small>{when(item.at)}</small>
-                  </div>
-                ))}
-              </div>
-            )}
-            {(customer.products || []).map((product) => (
-              <div className="cd-code-product" key={`${product.id}-${product.name}`}>
-                <b>{product.name}</b>
-                <SellerLine sellerType={product.sellerType} />
-              </div>
-            ))}
+        <div className="cd-top">
+          <h3>{customer.name}</h3>
+          <div className="cd-phone">
+            <Phone size={12} />
+            <span>{customer.phone || "Number not provided"}</span>
           </div>
+          <div className="cd-verified-row">
+            <ShieldCheck size={13} />
+            <span
+              className={
+                customer.verified
+                  ? "cd-status cd-status-paid"
+                  : "cd-status cd-status-pending"
+              }
+            >
+              {customer.verified ? "Verified" : "Pending"}
+            </span>
+          </div>
+          <div className="cd-code-top">
+            <div
+              className="cd-code"
+              onPointerDown={startHold}
+              onPointerUp={stopHold}
+              onPointerLeave={stopHold}
+              onPointerCancel={stopHold}
+              onContextMenu={(event) => {
+                event.preventDefault();
+                copyCode();
+              }}
+            >
+              <span>Customer Code</span>
+              <strong>{copied ? "Copied" : customer.code}</strong>
+            </div>
+            <button
+              type="button"
+              className="cd-statement-button"
+              onClick={() => setStatementOpen((open) => !open)}
+            >
+              Statement
+            </button>
+          </div>
+          {statementOpen && (
+            <div className="cd-statement">
+              <h2>Statement</h2>
+              {activity.length === 0 && <p>No activity yet.</p>}
+              {activity.map((item) => (
+                <div className={`cd-activity is-${item.tone}`} key={item.id}>
+                  <strong>{item.text}</strong>
+                  <small>{when(item.at)}</small>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <section className="cd-profile-grid">
           <div className="cd-card cd-location-card">
             <div className="cd-section-heading">
               <div className="cd-icon-box">
@@ -507,17 +484,6 @@ export default function CustomerDetails({
             </button>
           )}
         </div>
-
-        {methods.length > 0 && (
-          <section className="cd-card cd-options">
-            <h2>Payment Options</h2>
-            {methods.map((method) => (
-              <p key={method}>
-                {method === "card" ? "Credit/Debit Card" : "Bank Transfer"}
-              </p>
-            ))}
-          </section>
-        )}
 
         <footer className="cd-footer">
           <ShieldCheck size={13} />

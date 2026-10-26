@@ -82,6 +82,10 @@ end $$;
 alter table public.customers add column if not exists location_pin text not null default '';
 alter table public.customers add column if not exists id_document_path text;
 alter table public.customers add column if not exists payment_method text not null default 'bank';
+alter table public.customers drop constraint if exists customers_payment_method_check;
+alter table public.customers
+  add constraint customers_payment_method_check
+  check (payment_method ~* 'bank' or payment_method ~* 'card');
 alter table public.customers add column if not exists archived_at timestamptz;
 alter table public.customers add column if not exists created_by text not null default 'admin';
 
@@ -755,6 +759,20 @@ set search_path = public
 as $$
 declare
   method text;
+  contract_row public.instalment_contracts%rowtype;
+  product_count int;
+  matched_count int;
+  total_price numeric(12,2);
+  deposit numeric(12,2);
+  remaining numeric(12,2);
+  monthly numeric(12,2);
+  last_month numeric(12,2);
+  months int;
+  first_product uuid;
+  product_label text;
+  locked boolean;
+  start_on date;
+  month_no int;
 begin
   method := lower(btrim(coalesce(payload->>'payment_method', '')));
   if method <> '' and method !~ 'bank' and method !~ 'card' then
@@ -770,11 +788,116 @@ begin
     location_pin = coalesce(nullif(btrim(payload->>'location_pin'), ''), location_pin),
     city = coalesce(nullif(btrim(payload->>'location_pin'), ''), city),
     address = coalesce(nullif(btrim(payload->>'location_pin'), ''), address),
-    payment_method = case when method = '' then payment_method else method end
+    payment_method = case when method = '' then payment_method else method end,
+    id_document_path = case
+      when coalesce(btrim(payload->>'id_document_path'), '') = '' then id_document_path
+      else btrim(payload->>'id_document_path')
+    end
   where id = p_id;
 
   if not found then
     raise exception 'Customer not found';
+  end if;
+
+  if jsonb_typeof(payload->'products') = 'array'
+     and jsonb_array_length(payload->'products') > 0 then
+    select * into contract_row
+    from public.instalment_contracts
+    where customer_id = p_id
+    order by created_at desc
+    limit 1;
+
+    if contract_row.id is null then
+      raise exception 'Customer plan was not found';
+    end if;
+
+    select count(*) into product_count
+    from jsonb_array_elements(payload->'products');
+
+    select count(*), coalesce(sum(p.price), 0)
+    into matched_count, total_price
+    from jsonb_array_elements(payload->'products') elem
+    join public.products p on p.id = (elem->>'id')::uuid and p.is_active = true;
+
+    if matched_count <> product_count then
+      raise exception 'One or more selected products are not available';
+    end if;
+
+    select p.id into first_product
+    from jsonb_array_elements(payload->'products') elem
+    join public.products p on p.id = (elem->>'id')::uuid
+    limit 1;
+
+    select string_agg(p.name, ', ' order by p.name) into product_label
+    from jsonb_array_elements(payload->'products') elem
+    join public.products p on p.id = (elem->>'id')::uuid;
+
+    delete from public.customer_products where customer_id = p_id;
+    insert into public.customer_products (customer_id, contract_id, product_id, product_name, price)
+    select p_id, contract_row.id, p.id, p.name, p.price
+    from jsonb_array_elements(payload->'products') elem
+    join public.products p on p.id = (elem->>'id')::uuid;
+
+    select
+      exists (
+        select 1 from public.instalments i
+        where i.contract_id = contract_row.id
+          and (i.paid_at is not null or i.status = 'paid')
+      )
+      or exists (
+        select 1 from public.payments
+        where customer_id = p_id
+      )
+    into locked;
+
+    months := coalesce((payload->>'duration_months')::int, contract_row.duration_months);
+    deposit := round(coalesce((payload->>'down_payment')::numeric, contract_row.down_payment), 2);
+
+    if not locked
+       and months in (3, 6, 12, 18, 24)
+       and deposit >= 0
+       and deposit <= total_price then
+      remaining := round(total_price - deposit, 2);
+      monthly := round(remaining / months, 2);
+      last_month := round(remaining - (monthly * (months - 1)), 2);
+      start_on := coalesce(contract_row.start_date, current_date);
+
+      update public.instalment_contracts
+      set
+        product_id = first_product,
+        product_name = product_label,
+        total_amount = total_price,
+        down_payment = deposit,
+        remaining_amount = remaining,
+        duration_months = months,
+        monthly_amount = monthly
+      where id = contract_row.id;
+
+      delete from public.instalments where contract_id = contract_row.id;
+
+      if deposit > 0 then
+        insert into public.instalments (contract_id, month_number, amount, due_date, status)
+        values (contract_row.id, 0, deposit, start_on, 'pending');
+      end if;
+
+      for month_no in 1..months loop
+        insert into public.instalments (contract_id, month_number, amount, due_date, status)
+        values (
+          contract_row.id,
+          month_no,
+          case when month_no = months then last_month else monthly end,
+          (start_on + make_interval(months => month_no))::date,
+          'pending'
+        );
+      end loop;
+    else
+      update public.instalment_contracts
+      set
+        product_id = first_product,
+        product_name = product_label,
+        total_amount = total_price
+      where id = contract_row.id;
+    end if;
   end if;
 end;
 $$;

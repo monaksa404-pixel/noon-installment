@@ -34,9 +34,44 @@
 .plan-products {
   display: grid;
   gap: 8px;
-  max-height: 220px;
+  max-height: 180px;
   overflow: auto;
   margin-top: 6px;
+  padding-right: 2px;
+}
+
+.plan-edit {
+  display: grid;
+  gap: 10px;
+}
+
+.plan-edit h2 {
+  margin: 0;
+}
+
+.plan-edit-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.plan-edit-cancel,
+.plan-edit-save {
+  min-height: 40px;
+  padding: 0 14px;
+  border-radius: 8px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.plan-edit-cancel {
+  border: 1px solid #ddd;
+  background: #fff;
+}
+
+.plan-edit-save {
+  border: 0;
+  background: #ffe600;
 }
 
 .plan-product {

@@ -1,5 +1,5 @@
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowLeft,
   Archive,
@@ -16,14 +16,13 @@ import {
   UserPlus,
   Users,
 } from "lucide-react";
-import CustomerPlanForm from "./CustomerPlanForm";
+import CustomerPlanForm, { CustomerEditForm } from "./CustomerPlanForm";
 import {
   deactivateProduct,
   listBanks,
   listCustomers,
   listProducts,
   saveProduct,
-  updateCustomerDetails,
   updateProduct,
   deleteCustomer,
   setCustomerArchived,
@@ -657,77 +656,18 @@ export default function SupervisorPanel({ onLogout }) {
 
         {editingCustomer && (
           <div className="sp-modal-backdrop" onClick={() => setEditingCustomer(null)}>
-            <form
-              className="sp-modal"
-              onClick={(event) => event.stopPropagation()}
-              onSubmit={async (event) => {
-                event.preventDefault();
-                const form = new FormData(event.currentTarget);
-                const methods = [
-                  form.get("payBank") ? "bank" : "",
-                  form.get("payCard") ? "card" : "",
-                ].filter(Boolean);
-                if (!methods.length) {
-                  setMessage("Select at least one payment method.");
-                  return;
-                }
-                setSaving(true);
-                try {
-                  await updateCustomerDetails({
-                    id: editingCustomer.id,
-                    name: String(form.get("name") || ""),
-                    phone: String(form.get("phone") || ""),
-                    locationPin: String(form.get("locationPin") || ""),
-                    paymentMethod: methods.join(","),
-                  });
+            <div className="sp-modal" onClick={(event) => event.stopPropagation()}>
+              <CustomerEditForm
+                customer={editingCustomer}
+                products={products}
+                onCancel={() => setEditingCustomer(null)}
+                onSaved={async () => {
                   setEditingCustomer(null);
                   setReloadKey((value) => value + 1);
                   setMessage("Customer updated.");
-                } catch (error) {
-                  setMessage(error.message);
-                } finally {
-                  setSaving(false);
-                }
-              }}
-            >
-              <div className="sp-modal-heading">
-                <h2>Edit customer</h2>
-                <button type="button" onClick={() => setEditingCustomer(null)} aria-label="Close">
-                  ×
-                </button>
-              </div>
-              <Field label="Name">
-                <input name="name" defaultValue={editingCustomer.name} required />
-              </Field>
-              <Field label="Mobile">
-                <input name="phone" defaultValue={editingCustomer.phone} required />
-              </Field>
-              <Field label="Location" full>
-                <input name="locationPin" defaultValue={editingCustomer.locationPin} />
-              </Field>
-              <label className="sp-checkbox">
-                <input
-                  type="checkbox"
-                  name="payBank"
-                  defaultChecked={
-                    !editingCustomer.paymentMethods?.length ||
-                    editingCustomer.paymentMethods.includes("bank")
-                  }
-                />
-                Bank Transfer
-              </label>
-              <label className="sp-checkbox">
-                <input
-                  type="checkbox"
-                  name="payCard"
-                  defaultChecked={editingCustomer.paymentMethods?.includes("card")}
-                />
-                Credit/Debit Card
-              </label>
-              <button type="submit" className="sp-button sp-button-primary" disabled={saving}>
-                {saving ? "Saving..." : "Save"}
-              </button>
-            </form>
+                }}
+              />
+            </div>
           </div>
         )}
       </div>
@@ -776,6 +716,14 @@ function CustomerTable({
   onRestore,
   onView,
 }) {
+  const [copiedId, setCopiedId] = useState("");
+  const holdTimer = useRef(null);
+
+  async function copyId(customerId) {
+    await onCopy(customerId);
+    setCopiedId(customerId);
+    setTimeout(() => setCopiedId(""), 1200);
+  }
   if (!customers.length) {
     return <EmptyState text="Try a different search or add a customer." />;
   }
@@ -800,10 +748,20 @@ function CustomerTable({
                 <button
                   type="button"
                   className="sp-id-button"
-                  onClick={() => onCopy(customer.customerId)}
+                  onClick={() => copyId(customer.customerId)}
+                  onPointerDown={() => {
+                    clearTimeout(holdTimer.current);
+                    holdTimer.current = setTimeout(() => copyId(customer.customerId), 500);
+                  }}
+                  onPointerUp={() => clearTimeout(holdTimer.current)}
+                  onPointerLeave={() => clearTimeout(holdTimer.current)}
+                  onContextMenu={(event) => {
+                    event.preventDefault();
+                    copyId(customer.customerId);
+                  }}
                   title="Copy customer ID"
                 >
-                  {customer.customerId}
+                  {copiedId === customer.customerId ? "Copied" : customer.customerId}
                 </button>
               </td>
               <td>{customer.name}</td>
