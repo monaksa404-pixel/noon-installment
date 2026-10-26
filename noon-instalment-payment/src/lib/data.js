@@ -364,14 +364,14 @@ export function paymentTargets(customer) {
     : null;
 
   const nextDue =
-    !customer.paidDownPayment && down > 0 && customer.downInstalment?.enabled
+    !customer.paidDownPayment && down > 0 && customer.downInstalment?.id
       ? {
           kind: "down_payment",
           month: null,
           amount: Number(customer.downInstalment?.amount || down),
           dueDate: customer.downInstalment?.dueDate || "Due now",
           label: "Down payment",
-          instalmentId: customer.downInstalment?.id || null,
+          instalmentId: customer.downInstalment.id,
         }
       : nextInstalment;
 
@@ -891,7 +891,7 @@ export async function createPayment({
   if (instalment.status === "paid" || instalment.paid_at) {
     throw new Error("This instalment is already paid.");
   }
-  if (instalment.enabled === false) {
+  if (instalment.enabled === false && Number(instalment.month_number) !== 0) {
     throw new Error("This instalment is not enabled yet.");
   }
   if (Math.abs(Number(instalment.amount) - Number(amount)) > 0.009) {

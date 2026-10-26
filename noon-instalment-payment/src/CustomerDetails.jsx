@@ -177,23 +177,6 @@ export default function CustomerDetails({
         )}
 
         <div className="cd-top">
-          <h3>{customer.name}</h3>
-          <div className="cd-phone">
-            <Phone size={12} />
-            <span>{customer.phone || "Number not provided"}</span>
-          </div>
-          <div className="cd-verified-row">
-            <ShieldCheck size={13} />
-            <span
-              className={
-                customer.verified
-                  ? "cd-status cd-status-paid"
-                  : "cd-status cd-status-pending"
-              }
-            >
-              {customer.verified ? "Verified" : "Pending"}
-            </span>
-          </div>
           <div className="cd-code-top">
             <div
               className="cd-code"
@@ -229,6 +212,23 @@ export default function CustomerDetails({
               ))}
             </div>
           )}
+          <h3>{customer.name}</h3>
+          <div className="cd-phone">
+            <Phone size={12} />
+            <span>{customer.phone || "Number not provided"}</span>
+          </div>
+          <div className="cd-verified-row">
+            <ShieldCheck size={13} />
+            <span
+              className={
+                customer.verified
+                  ? "cd-status cd-status-paid"
+                  : "cd-status cd-status-pending"
+              }
+            >
+              {customer.verified ? "Verified" : "Pending"}
+            </span>
+          </div>
         </div>
 
         <section className="cd-profile-grid">

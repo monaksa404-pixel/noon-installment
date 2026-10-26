@@ -388,8 +388,8 @@ begin
   values (new_customer, bank_id, true);
 
   if deposit > 0 then
-    insert into public.instalments (contract_id, month_number, amount, due_date, status)
-    values (new_contract, 0, deposit, start_on, 'pending');
+    insert into public.instalments (contract_id, month_number, amount, due_date, status, enabled, enabled_at)
+    values (new_contract, 0, deposit, start_on, 'pending', true, now());
   end if;
 
   for month_no in 1..months loop
@@ -876,8 +876,8 @@ begin
       delete from public.instalments where contract_id = contract_row.id;
 
       if deposit > 0 then
-        insert into public.instalments (contract_id, month_number, amount, due_date, status)
-        values (contract_row.id, 0, deposit, start_on, 'pending');
+        insert into public.instalments (contract_id, month_number, amount, due_date, status, enabled, enabled_at)
+        values (contract_row.id, 0, deposit, start_on, 'pending', true, now());
       end if;
 
       for month_no in 1..months loop
@@ -905,5 +905,12 @@ $$;
 grant execute on function public.enable_next_instalment(uuid) to anon, authenticated;
 grant execute on function public.delete_customer(uuid) to anon, authenticated;
 grant execute on function public.update_customer_details(uuid, jsonb) to anon, authenticated;
+
+update public.instalments
+set enabled = true, enabled_at = coalesce(enabled_at, now())
+where month_number = 0
+  and paid_at is null
+  and status <> 'paid'
+  and coalesce(enabled, false) = false;
 
 notify pgrst, 'reload schema';
