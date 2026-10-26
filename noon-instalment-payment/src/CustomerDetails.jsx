@@ -89,9 +89,9 @@ export default function CustomerDetails({
   const activity = customer.activity || [];
   const [statementOpen, setStatementOpen] = useState(false);
   const [popup, setPopup] = useState(null);
-  const methods = customer.paymentMethods?.length
-    ? customer.paymentMethods
-    : ["bank"];
+  const methods = (customer.paymentMethods || []).filter(
+    (method) => method === "bank" || method === "card"
+  );
 
   const latestId = activity[0]?.id || "";
   useEffect(() => {
@@ -177,6 +177,25 @@ export default function CustomerDetails({
                 {customer.verified ? "Verified" : "Pending"}
               </span>
             </div>
+            <div className="cd-code-top">
+              <div className="cd-code">
+                <span>Customer Code</span>
+                <strong>{customer.code}</strong>
+              </div>
+              <button
+                type="button"
+                className="cd-statement-button"
+                onClick={() => setStatementOpen((open) => !open)}
+              >
+                Statement
+              </button>
+            </div>
+            {(customer.products || []).map((product) => (
+              <div className="cd-code-product" key={`${product.id}-${product.name}`}>
+                <b>{product.name}</b>
+                {product.sellerType ? <small>{product.sellerType}</small> : null}
+              </div>
+            ))}
           </div>
           <div className="cd-card cd-location-card">
             <div className="cd-section-heading">
@@ -209,36 +228,6 @@ export default function CustomerDetails({
               <ExternalLink size={12} />
             </a>
           </div>
-        </section>
-
-        <div className="cd-title-row">
-          <div>
-            <span className="cd-eyebrow">CUSTOMER PROFILE</span>
-            <h1>Customer Details</h1>
-            <p>Review your account and instalment plan.</p>
-          </div>
-        </div>
-
-        <section className="cd-card cd-code-card">
-          <div className="cd-code-top">
-            <div className="cd-code">
-              <span>Customer Code</span>
-              <strong>{customer.code}</strong>
-            </div>
-            <button
-              type="button"
-              className="cd-statement-button"
-              onClick={() => setStatementOpen((open) => !open)}
-            >
-              Statement
-            </button>
-          </div>
-          {(customer.products || []).map((product) => (
-            <div className="cd-code-product" key={`${product.id}-${product.name}`}>
-              <b>{product.name}</b>
-              {product.sellerType && <small>{product.sellerType}</small>}
-            </div>
-          ))}
         </section>
 
         {statementOpen && (
@@ -307,7 +296,10 @@ export default function CustomerDetails({
                   {product.image ? (
                     <img src={product.image} alt="" />
                   ) : null}
-                  <span>{product.name}</span>
+                  <span>
+                    <b>{product.name}</b>
+                    {product.sellerType ? <small>{product.sellerType}</small> : null}
+                  </span>
                   <strong>{formatSAR(product.price)}</strong>
                 </li>
               ))}
@@ -340,6 +332,16 @@ export default function CustomerDetails({
               <strong>{formatSAR(customer.monthlyAmount)}</strong>
             </div>
           </div>
+          {methods.length > 0 && (
+            <div className="cd-options">
+              <h2>Payment Options</h2>
+              {methods.map((method) => (
+                <p key={method}>
+                  {method === "card" ? "Credit/Debit Card" : "Bank Transfer"}
+                </p>
+              ))}
+            </div>
+          )}
         </section>
 
         {/* Payment progress */}
@@ -464,15 +466,6 @@ export default function CustomerDetails({
             </button>
           )}
         </div>
-
-        <section className="cd-card cd-options">
-          <h2>Payment Options</h2>
-          {methods.map((method) => (
-            <p key={method}>
-              {method === "card" ? "Credit/Debit Card" : "Bank Transfer"}
-            </p>
-          ))}
-        </section>
 
         <footer className="cd-footer">
           <ShieldCheck size={13} />

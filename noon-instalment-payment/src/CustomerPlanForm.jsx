@@ -173,6 +173,25 @@ export default function CustomerPlanForm({
             required
           />
         </label>
+        <div className={fullClass}>
+          Payment methods *
+          <label className="plan-check">
+            <input
+              type="checkbox"
+              checked={payBank}
+              onChange={(e) => setPayBank(e.target.checked)}
+            />
+            Bank Transfer
+          </label>
+          <label className="plan-check">
+            <input
+              type="checkbox"
+              checked={payCard}
+              onChange={(e) => setPayCard(e.target.checked)}
+            />
+            Credit/Debit Card
+          </label>
+        </div>
         <label className={fullClass}>
           ID document *
           <input
@@ -199,6 +218,9 @@ export default function CustomerPlanForm({
                   checked={selected.includes(product.id)}
                   onChange={() => toggleProduct(product.id)}
                 />
+                {product.image ? (
+                  <img className="plan-product-image" src={product.image} alt="" />
+                ) : null}
                 <span>{product.name}</span>
                 <b>{money(product.price)}</b>
               </label>
@@ -239,25 +261,6 @@ export default function CustomerPlanForm({
           Monthly instalment
           <input value={total ? monthly.toFixed(2) : ""} readOnly />
         </label>
-        <div className={fieldClass}>
-          Payment methods *
-          <label className="plan-check">
-            <input
-              type="checkbox"
-              checked={payBank}
-              onChange={(e) => setPayBank(e.target.checked)}
-            />
-            Bank Transfer
-          </label>
-          <label className="plan-check">
-            <input
-              type="checkbox"
-              checked={payCard}
-              onChange={(e) => setPayCard(e.target.checked)}
-            />
-            Credit/Debit Card
-          </label>
-        </div>
         <label className={fieldClass}>
           Bank account *
           <select

@@ -266,8 +266,8 @@ begin
     raise exception 'Select an instalment plan of 3, 6, 12, 18, or 24 months';
   end if;
 
-  method := payload->>'payment_method';
-  if method is null or method !~ '^(bank|card|bank,card|card,bank)$' then
+  method := lower(btrim(coalesce(payload->>'payment_method', '')));
+  if method !~ 'bank' and method !~ 'card' then
     raise exception 'Select a payment method';
   end if;
 

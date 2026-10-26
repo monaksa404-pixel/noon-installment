@@ -95,7 +95,11 @@ function mapProduct(item) {
     price: Number(item.price || 0),
     sellerType:
       item.description === "__seller_type_normal__" ? "normal" : "noon",
-    image: item.image_path || "",
+    image: item.image_path
+      ? String(item.image_path).startsWith("http")
+        ? item.image_path
+        : supabase.storage.from("product-images").getPublicUrl(item.image_path).data?.publicUrl || ""
+      : "",
     createdAt: item.created_at,
   };
 }
@@ -210,7 +214,7 @@ function mapCustomer(row, idDocument = "", payments = []) {
     createdAt: contract?.start_date || row.created_at,
     createdBy: row.created_by || "",
     archivedAt: row.archived_at || "",
-    paymentMethods: String(row.payment_method || "bank")
+    paymentMethods: String(row.payment_method || "")
       .split(",")
       .map((item) => item.trim())
       .filter((item) => item === "bank" || item === "card"),
@@ -378,9 +382,7 @@ export function portalView(customer) {
     paidDownPayment: customer.paidDownPayment,
     paidMonths: customer.paidMonths || [],
     paymentMethod: customer.paymentMethod,
-    paymentMethods: customer.paymentMethods?.length
-      ? customer.paymentMethods
-      : ["bank"],
+    paymentMethods: customer.paymentMethods || [],
     bank: customer.bank,
     activity: customer.activity || [],
     schedule: customer.schedule || [],
@@ -551,9 +553,16 @@ async function attachCatalog(rows) {
   return Array.isArray(rows) ? mapped : mapped[0] || null;
 }
 
+const CUSTOMER_PLAIN = `
+  id, customer_code, name, full_name, phone, mobile, city, address,
+  location_pin, id_document_path, payment_method, created_by,
+  archived_at, status, created_at
+`;
+
 async function loadCustomerRows(build) {
   let result = await build(CUSTOMER_SELECT);
   if (result.error) result = await build(CUSTOMER_CORE);
+  if (result.error) result = await build(CUSTOMER_PLAIN);
   if (result.error) fail(result.error);
   return attachCatalog(result.data || []);
 }
@@ -630,20 +639,27 @@ export async function createCustomer({
     idDocumentPath = await uploadToBucket("customer-documents", idFile, "ids");
   }
 
-  const { data, error } = await supabase.rpc("create_customer_plan", {
-    payload: {
-      name,
-      phone,
-      location_pin: locationPin,
-      id_document_path: idDocumentPath,
-      payment_method: paymentMethod,
-      bank_account_id: bankAccountId,
-      down_payment: Number(downPayment),
-      duration_months: Number(duration),
-      created_by: createdBy,
-      products: products.map((item) => ({ id: item.id })),
-    },
-  });
+  const methods = String(paymentMethod || "").trim();
+  const primary = methods.includes("bank") ? "bank" : "card";
+  const payload = {
+    name,
+    phone,
+    location_pin: locationPin,
+    id_document_path: idDocumentPath,
+    payment_method: methods || primary,
+    bank_account_id: bankAccountId,
+    down_payment: Number(downPayment),
+    duration_months: Number(duration),
+    created_by: createdBy,
+    products: products.map((item) => ({ id: item.id })),
+  };
+  let { data, error } = await supabase.rpc("create_customer_plan", { payload });
+  if (error && /select a payment method/i.test(error.message) && payload.payment_method !== primary) {
+    payload.payment_method = primary;
+    const retry = await supabase.rpc("create_customer_plan", { payload });
+    data = retry.data;
+    error = retry.error;
+  }
 
   if (error) fail(error);
   return data;
@@ -674,7 +690,7 @@ export async function listPayments() {
     data = retry.data;
     error = retry.error;
   }
-  if (error) fail(error);
+  if (error) return [];
   const instalmentIds = [
     ...new Set((data || []).map((row) => row.instalment_id).filter(Boolean)),
   ];
@@ -809,7 +825,7 @@ export async function listSupervisors() {
     .from("supervisors")
     .select("id, name, email, username, created_at")
     .order("created_at", { ascending: false });
-  if (error) fail(error);
+  if (error) return [];
   return (data || []).map((item) => ({
     id: item.id,
     name: item.name,

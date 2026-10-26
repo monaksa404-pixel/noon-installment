@@ -71,6 +71,14 @@
   white-space: nowrap;
 }
 
+.plan-product-image {
+  width: 42px;
+  height: 42px;
+  object-fit: cover;
+  border-radius: 6px;
+  flex: 0 0 42px;
+}
+
 .plan-product.is-selected {
   background: #fff6b0;
   border-color: #e2c200;

@@ -477,7 +477,7 @@ export default function App() {
               </h3>
 
               {/* BANK TRANSFER */}
-              {(customer.paymentMethods || ["bank"]).includes("bank") && (
+              {(customer.paymentMethods || []).includes("bank") && (
               <>
               <button
                 type="button"
@@ -552,7 +552,7 @@ export default function App() {
               </>
               )}
 
-              {(customer.paymentMethods || ["bank"]).includes("card") && (
+              {(customer.paymentMethods || []).includes("card") && (
               <>
               <button
                 type="button"

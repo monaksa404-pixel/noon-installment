@@ -653,8 +653,9 @@
   background: #f7f7f7;
 }
 
-.cd-code-card .cd-code-top {
+.cd-profile-card .cd-code-top {
   justify-content: space-between;
+  margin-top: 10px;
 }
 
 .cd-code-top,
@@ -843,9 +844,21 @@
 
 .customer-details .cd-product-list li {
   display: flex;
+  align-items: center;
   justify-content: space-between;
   gap: 12px;
   font-size: 12px;
+}
+
+.customer-details .cd-product-list li span {
+  display: grid;
+  flex: 1;
+  gap: 2px;
+}
+
+.customer-details .cd-product-list li span small {
+  color: #666;
+  font-size: 11px;
 }
 
 /* Footer */
