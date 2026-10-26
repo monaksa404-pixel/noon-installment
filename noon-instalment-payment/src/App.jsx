@@ -49,7 +49,12 @@ export default function App() {
     hasIdDocument: false,
     idDocument: "",
     products: [
-      { id: "demo-product", name: "Samsung Galaxy Smartphone", price: 1800 },
+      {
+        id: "demo-product",
+        name: "Samsung Galaxy Smartphone",
+        price: 1800,
+        sellerType: "Sold by Noon",
+      },
     ],
     productName: "Samsung Galaxy Smartphone",
     productPrice: 1800,
@@ -475,6 +480,9 @@ export default function App() {
               <h3 className="payment-heading">
                 Choose payment method
               </h3>
+              {(customer.paymentMethods || []).length === 0 && (
+                <p>No payment method is assigned to this customer yet.</p>
+              )}
 
               {/* BANK TRANSFER */}
               {(customer.paymentMethods || []).includes("bank") && (

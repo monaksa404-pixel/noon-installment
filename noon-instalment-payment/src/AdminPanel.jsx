@@ -17,6 +17,8 @@ import {
   saveBank,
   saveProduct,
   saveSupervisor,
+  updateCustomerDetails,
+  updateProduct,
   setCustomerArchived,
 } from "./lib/data.js";
 import {
@@ -28,6 +30,7 @@ import {
   Landmark,
   LayoutDashboard,
   Package,
+  Pencil,
   Plus,
   Search,
   ShieldCheck,
@@ -80,6 +83,8 @@ export default function AdminPanel({ onLogout }) {
   });
 
   const [productImage, setProductImage] = useState(null);
+  const [editingProductId, setEditingProductId] = useState("");
+  const [editingCustomer, setEditingCustomer] = useState(null);
 
   const [supervisorForm, setSupervisorForm] = useState({
     name: "",
@@ -258,20 +263,34 @@ export default function AdminPanel({ onLogout }) {
     }
 
     try {
-      const saved = await saveProduct({
-        name,
-        price,
-        sellerType: productForm.sellerType,
-        file: productImage,
-      });
-      setProducts((previous) => [saved, ...previous]);
+      if (editingProductId) {
+        const saved = await updateProduct({
+          id: editingProductId,
+          name,
+          price,
+          sellerType: productForm.sellerType,
+        });
+        setProducts((previous) =>
+          previous.map((item) => (item.id === saved.id ? { ...item, ...saved } : item))
+        );
+        setEditingProductId("");
+        notify("Product updated.");
+      } else {
+        const saved = await saveProduct({
+          name,
+          price,
+          sellerType: productForm.sellerType,
+          file: productImage,
+        });
+        setProducts((previous) => [saved, ...previous]);
+        notify("Product saved.");
+      }
       setProductForm({
         name: "",
         price: "",
         sellerType: "noon",
       });
       setProductImage(null);
-      notify("Product saved.");
     } catch (error) {
       notify(error.message || "Product could not be saved.");
     }
@@ -651,6 +670,7 @@ export default function AdminPanel({ onLogout }) {
                   onView={setSelectedCustomer}
                   onArchive={archiveCustomer}
                   onDelete={removeCustomer}
+                  onEdit={setEditingCustomer}
                 />
               </section>
             </>
@@ -679,6 +699,7 @@ export default function AdminPanel({ onLogout }) {
                 onView={setSelectedCustomer}
                 onArchive={archiveCustomer}
                 onDelete={removeCustomer}
+                onEdit={setEditingCustomer}
               />
             </section>
           )}
@@ -760,6 +781,22 @@ export default function AdminPanel({ onLogout }) {
 
                       <b>{money(product.price)} ر.س</b>
 
+                      <button
+                        type="button"
+                        className="admin-secondary-button"
+                        onClick={() => {
+                          setEditingProductId(product.id);
+                          setProductForm({
+                            name: product.name,
+                            price: String(product.price),
+                            sellerType: product.sellerType || "noon",
+                          });
+                          goTo("add-product");
+                        }}
+                      >
+                        <Pencil size={15} />
+                        Edit Product
+                      </button>
                       <button
                         type="button"
                         className="admin-danger-button"
@@ -859,7 +896,7 @@ export default function AdminPanel({ onLogout }) {
                   className="admin-primary-button"
                 >
                   <Plus size={17} />
-                  Save Product
+                  {editingProductId ? "Update Product" : "Save Product"}
                 </button>
               </form>
             </section>
@@ -1312,6 +1349,7 @@ export default function AdminPanel({ onLogout }) {
                   onView={setSelectedCustomer}
                   onArchive={archiveCustomer}
                   onDelete={removeCustomer}
+                  onEdit={setEditingCustomer}
                 />
               </section>
             </>
@@ -1319,6 +1357,82 @@ export default function AdminPanel({ onLogout }) {
 
         </main>
       </div>
+
+      {editingCustomer && (
+        <div className="admin-modal-backdrop" onClick={() => setEditingCustomer(null)}>
+          <form
+            className="admin-modal"
+            onClick={(event) => event.stopPropagation()}
+            onSubmit={async (event) => {
+              event.preventDefault();
+              const form = new FormData(event.currentTarget);
+              const methods = [
+                form.get("payBank") ? "bank" : "",
+                form.get("payCard") ? "card" : "",
+              ].filter(Boolean);
+              if (!methods.length) {
+                notify("Select at least one payment method.");
+                return;
+              }
+              try {
+                await updateCustomerDetails({
+                  id: editingCustomer.id,
+                  name: String(form.get("name") || ""),
+                  phone: String(form.get("phone") || ""),
+                  locationPin: String(form.get("locationPin") || ""),
+                  paymentMethod: methods.join(","),
+                });
+                setEditingCustomer(null);
+                await refresh();
+                notify("Customer updated.");
+              } catch (error) {
+                notify(error.message);
+              }
+            }}
+          >
+            <h2>Edit customer</h2>
+            <label>
+              Name
+              <input name="name" defaultValue={editingCustomer.name} required />
+            </label>
+            <label>
+              Mobile
+              <input name="phone" defaultValue={editingCustomer.phone} required />
+            </label>
+            <label>
+              Location
+              <input name="locationPin" defaultValue={editingCustomer.locationPin} />
+            </label>
+            <label className="admin-check">
+              <input
+                type="checkbox"
+                name="payBank"
+                defaultChecked={
+                  !editingCustomer.paymentMethods?.length ||
+                  editingCustomer.paymentMethods.includes("bank")
+                }
+              />
+              Bank Transfer
+            </label>
+            <label className="admin-check">
+              <input
+                type="checkbox"
+                name="payCard"
+                defaultChecked={editingCustomer.paymentMethods?.includes("card")}
+              />
+              Credit/Debit Card
+            </label>
+            <div className="admin-modal-actions">
+              <button type="button" className="admin-secondary-button" onClick={() => setEditingCustomer(null)}>
+                Cancel
+              </button>
+              <button type="submit" className="admin-primary-button">
+                Save
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
 
       {/* CUSTOMER DETAILS MODAL */}
       {selectedCustomer && (
@@ -1376,9 +1490,16 @@ export default function AdminPanel({ onLogout }) {
             <Detail
               label="Payment Method"
               value={
-                selectedCustomer.paymentMethod === "card"
-                  ? "Credit / Debit Card"
-                  : "Bank Transfer"
+                selectedCustomer.paymentMethods?.includes("bank") &&
+                selectedCustomer.paymentMethods?.includes("card")
+                  ? "Bank Transfer, Credit/Debit Card"
+                  : selectedCustomer.paymentMethods?.includes("card") ||
+                      selectedCustomer.paymentMethod === "card"
+                    ? "Credit/Debit Card"
+                    : selectedCustomer.paymentMethods?.includes("bank") ||
+                        selectedCustomer.paymentMethod === "bank"
+                      ? "Bank Transfer"
+                      : "Not selected"
               }
             />
 
@@ -1598,7 +1719,7 @@ function Detail({ label, value }) {
   );
 }
 
-function CustomerTable({ customers, onView, onArchive, onDelete }) {
+function CustomerTable({ customers, onView, onArchive, onDelete, onEdit }) {
   if (!customers.length) {
     return (
       <EmptyState
@@ -1651,6 +1772,16 @@ function CustomerTable({ customers, onView, onArchive, onDelete }) {
                   >
                     <Archive size={16} />
                   </button>
+                  {onEdit && (
+                    <button
+                      type="button"
+                      className="admin-icon-button"
+                      title="Edit customer"
+                      onClick={() => onEdit(customer)}
+                    >
+                      <Pencil size={16} />
+                    </button>
+                  )}
                   {onDelete && (
                     <button
                       type="button"

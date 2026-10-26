@@ -98,6 +98,10 @@
   padding: 9px 10px;
   border-radius: 10px;
   background: var(--cd-yellow);
+  cursor: pointer;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: manipulation;
 }
 
 .customer-details .cd-code span {
@@ -689,10 +693,48 @@
   font-size: 14px;
 }
 
-.cd-code-product small {
-  color: #555;
+.cd-seller-noon,
+.cd-seller-normal {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
   font-size: 12px;
+  font-weight: 700;
 }
+
+.cd-seller-noon {
+  color: #2673cc;
+}
+
+.cd-seller-normal {
+  color: #777;
+}
+
+.cd-statement {
+  margin-top: 10px;
+}
+
+.cd-statement h2 {
+  margin: 0 0 6px;
+  font-size: 14px;
+}
+
+.cd-activity {
+  margin: 6px 0;
+  padding: 8px 10px;
+  border-radius: 8px;
+}
+
+.cd-activity small {
+  display: block;
+  margin-top: 2px;
+  font-size: 11px;
+}
+
+.cd-activity.is-green { background: #e8f6ec; }
+.cd-activity.is-red { background: #fdecea; }
+.cd-activity.is-yellow { background: #fff6cc; }
+.cd-activity.is-blue { background: #e7f0fb; }
 
 .cd-product-list img {
   width: 48px;
@@ -722,14 +764,48 @@
   border: 1px solid #e5e5e5;
 }
 
-.cd-popup.is-green { border-color: #0b7a32; }
-.cd-popup.is-red { border-color: #c62828; }
-.cd-popup.is-yellow { border-color: #e2c200; }
-.cd-popup.is-blue { border-color: #1558b0; }
+.cd-popup.is-green {
+  background: #0b7a32;
+  border-color: #0b7a32;
+  color: #fff;
+}
+.cd-popup.is-red {
+  background: #c62828;
+  border-color: #c62828;
+  color: #fff;
+}
+.cd-popup.is-yellow {
+  background: #ffe600;
+  border-color: #ffe600;
+  color: #111;
+}
+.cd-popup.is-blue {
+  background: #1558b0;
+  border-color: #1558b0;
+  color: #fff;
+}
+
+.cd-popup.is-green small,
+.cd-popup.is-red small,
+.cd-popup.is-blue small {
+  color: #fff;
+}
+
+.cd-popup.is-yellow small {
+  color: #333;
+}
+
+.cd-popup.is-green button,
+.cd-popup.is-red button,
+.cd-popup.is-blue button {
+  background: #fff;
+  color: #111;
+}
 
 .cd-popup-logo {
-  width: 54px;
-  height: 20px;
+  width: auto;
+  height: 22px;
+  object-fit: contain;
   flex-shrink: 0;
 }
 

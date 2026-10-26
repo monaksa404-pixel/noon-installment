@@ -1,5 +1,5 @@
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import NoonLogo from "./NoonLogo";
 import {
   UserRound,
@@ -11,6 +11,7 @@ import {
   CalendarDays,
   Wallet,
   CheckCircle2,
+  BadgeCheck,
   Clock3,
   ArrowLeft,
   ArrowRight,
@@ -37,6 +38,20 @@ const demoCustomer = {
   paidDownPayment: true,
   paidMonths: [1, 2],
 };
+
+function SellerLine({ sellerType }) {
+  if (sellerType === "Sold by Noon") {
+    return (
+      <span className="cd-seller-noon">
+        Sold by Noon <BadgeCheck size={14} />
+      </span>
+    );
+  }
+  if (sellerType === "Normal") {
+    return <span className="cd-seller-normal">Normal Product</span>;
+  }
+  return null;
+}
 
 function formatSAR(amount) {
   return `SAR ${Number(amount || 0).toLocaleString("en-US")}`;
@@ -89,6 +104,8 @@ export default function CustomerDetails({
   const activity = customer.activity || [];
   const [statementOpen, setStatementOpen] = useState(false);
   const [popup, setPopup] = useState(null);
+  const [copied, setCopied] = useState(false);
+  const holdTimer = useRef(null);
   const methods = (customer.paymentMethods || []).filter(
     (method) => method === "bank" || method === "card"
   );
@@ -103,6 +120,25 @@ export default function CustomerDetails({
     const seen = sessionStorage.getItem(`noon-note-${customer.code}-${latest.id}`);
     setPopup(seen ? null : latest);
   }, [customer.code, latestId]);
+
+  async function copyCode() {
+    try {
+      await navigator.clipboard.writeText(String(customer.code || ""));
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch {
+      setCopied(false);
+    }
+  }
+
+  function startHold() {
+    clearTimeout(holdTimer.current);
+    holdTimer.current = setTimeout(copyCode, 500);
+  }
+
+  function stopHold() {
+    clearTimeout(holdTimer.current);
+  }
 
   function closePopup() {
     if (popup) {
@@ -178,9 +214,19 @@ export default function CustomerDetails({
               </span>
             </div>
             <div className="cd-code-top">
-              <div className="cd-code">
+              <div
+                className="cd-code"
+                onPointerDown={startHold}
+                onPointerUp={stopHold}
+                onPointerLeave={stopHold}
+                onPointerCancel={stopHold}
+                onContextMenu={(event) => {
+                  event.preventDefault();
+                  copyCode();
+                }}
+              >
                 <span>Customer Code</span>
-                <strong>{customer.code}</strong>
+                <strong>{copied ? "Copied" : customer.code}</strong>
               </div>
               <button
                 type="button"
@@ -190,10 +236,22 @@ export default function CustomerDetails({
                 Statement
               </button>
             </div>
+            {statementOpen && (
+              <div className="cd-statement">
+                <h2>Statement</h2>
+                {activity.length === 0 && <p>No activity yet.</p>}
+                {activity.map((item) => (
+                  <div className={`cd-activity is-${item.tone}`} key={item.id}>
+                    <strong>{item.text}</strong>
+                    <small>{when(item.at)}</small>
+                  </div>
+                ))}
+              </div>
+            )}
             {(customer.products || []).map((product) => (
               <div className="cd-code-product" key={`${product.id}-${product.name}`}>
                 <b>{product.name}</b>
-                {product.sellerType ? <small>{product.sellerType}</small> : null}
+                <SellerLine sellerType={product.sellerType} />
               </div>
             ))}
           </div>
@@ -230,19 +288,6 @@ export default function CustomerDetails({
           </div>
         </section>
 
-        {statementOpen && (
-          <section className="cd-card cd-statement">
-            <h2>Statement</h2>
-            {activity.length === 0 && <p>No activity yet.</p>}
-            {activity.map((item) => (
-              <div className={`cd-activity is-${item.tone}`} key={item.id}>
-                <strong>{item.text}</strong>
-                <small>{when(item.at)}</small>
-              </div>
-            ))}
-          </section>
-        )}
-
         {/* Customer ID document */}
         <section className="cd-card cd-document-card">
           <div className="cd-section-heading">
@@ -256,13 +301,19 @@ export default function CustomerDetails({
           </div>
 
           {customer.idDocumentUrl ? (
-            <object
-              className="cd-id-image"
-              data={customer.idDocumentUrl}
-              aria-label="Customer ID document"
-            >
-              <img src={customer.idDocumentUrl} alt="Customer ID document" />
-            </object>
+            /\.pdf(\?|$)/i.test(customer.idDocumentUrl) ? (
+              <object
+                className="cd-id-image"
+                data={customer.idDocumentUrl}
+                aria-label="Customer ID document"
+              />
+            ) : (
+              <img
+                className="cd-id-image"
+                src={customer.idDocumentUrl}
+                alt="Customer ID document"
+              />
+            )
           ) : (
             <div className="cd-document-empty">
               <FileText size={17} />
@@ -298,7 +349,7 @@ export default function CustomerDetails({
                   ) : null}
                   <span>
                     <b>{product.name}</b>
-                    {product.sellerType ? <small>{product.sellerType}</small> : null}
+                    <SellerLine sellerType={product.sellerType} />
                   </span>
                   <strong>{formatSAR(product.price)}</strong>
                 </li>
@@ -332,16 +383,6 @@ export default function CustomerDetails({
               <strong>{formatSAR(customer.monthlyAmount)}</strong>
             </div>
           </div>
-          {methods.length > 0 && (
-            <div className="cd-options">
-              <h2>Payment Options</h2>
-              {methods.map((method) => (
-                <p key={method}>
-                  {method === "card" ? "Credit/Debit Card" : "Bank Transfer"}
-                </p>
-              ))}
-            </div>
-          )}
         </section>
 
         {/* Payment progress */}
@@ -466,6 +507,17 @@ export default function CustomerDetails({
             </button>
           )}
         </div>
+
+        {methods.length > 0 && (
+          <section className="cd-card cd-options">
+            <h2>Payment Options</h2>
+            {methods.map((method) => (
+              <p key={method}>
+                {method === "card" ? "Credit/Debit Card" : "Bank Transfer"}
+              </p>
+            ))}
+          </section>
+        )}
 
         <footer className="cd-footer">
           <ShieldCheck size={13} />

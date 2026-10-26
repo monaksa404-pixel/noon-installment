@@ -33,8 +33,9 @@
 
 .sp-brand-icon {
   display: block;
-  width: 78px;
-  height: 28px;
+  width: auto;
+  height: 34px;
+  object-fit: contain;
   background: transparent;
 }
 
@@ -737,8 +738,7 @@
   }
 
   .sp-brand-icon {
-    width: 72px;
-    height: 26px;
+    height: 28px;
   }
 
   .sp-brand strong {

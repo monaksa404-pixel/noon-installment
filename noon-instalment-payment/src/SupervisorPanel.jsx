@@ -7,6 +7,7 @@ import {
   ImagePlus,
   LogOut,
   Package,
+  Pencil,
   RotateCcw,
   Eye,
   Search,
@@ -22,6 +23,8 @@ import {
   listCustomers,
   listProducts,
   saveProduct,
+  updateCustomerDetails,
+  updateProduct,
   deleteCustomer,
   setCustomerArchived,
 } from "./lib/data.js";
@@ -49,6 +52,8 @@ export default function SupervisorPanel({ onLogout }) {
   const [banks, setBanks] = useState([]);
   const [productForm, setProductForm] = useState(initialProductForm);
   const [productImage, setProductImage] = useState(null);
+  const [editingProductId, setEditingProductId] = useState("");
+  const [editingCustomer, setEditingCustomer] = useState(null);
   const [search, setSearch] = useState("");
   const [selectedCustomer, setSelectedCustomer] = useState(null);
   const [message, setMessage] = useState("");
@@ -141,16 +146,30 @@ export default function SupervisorPanel({ onLogout }) {
     setSaving(true);
 
     try {
-      const saved = await saveProduct({
-        name,
-        price,
-        sellerType: productForm.sellerType,
-        file: productImage,
-      });
-      setProducts((current) => [saved, ...current]);
+      if (editingProductId) {
+        const saved = await updateProduct({
+          id: editingProductId,
+          name,
+          price,
+          sellerType: productForm.sellerType,
+        });
+        setProducts((current) =>
+          current.map((item) => (item.id === saved.id ? { ...item, ...saved } : item))
+        );
+        setEditingProductId("");
+        setMessage("Product updated.");
+      } else {
+        const saved = await saveProduct({
+          name,
+          price,
+          sellerType: productForm.sellerType,
+          file: productImage,
+        });
+        setProducts((current) => [saved, ...current]);
+        setMessage("Product saved successfully.");
+      }
       setProductForm(initialProductForm);
       setProductImage(null);
-      setMessage("Product saved successfully.");
     } catch (error) {
       setMessage(error.message || "Product could not be saved.");
     } finally {
@@ -443,7 +462,7 @@ export default function SupervisorPanel({ onLogout }) {
               disabled={saving}
             >
               <Package size={18} />
-              {saving ? "Saving..." : "Save Product"}
+              {saving ? "Saving..." : editingProductId ? "Update Product" : "Save Product"}
             </button>
           </form>
         )}
@@ -485,6 +504,22 @@ export default function SupervisorPanel({ onLogout }) {
                         <span className="sp-normal-badge">Normal Product</span>
                       )}
                       <strong>{formatMoney(product.price)}</strong>
+                      <button
+                        type="button"
+                        className="sp-button sp-button-light sp-small-button"
+                        onClick={() => {
+                          setEditingProductId(product.id);
+                          setProductForm({
+                            name: product.name,
+                            price: String(product.price),
+                            sellerType: product.sellerType || "noon",
+                          });
+                          openPage("add-product");
+                        }}
+                      >
+                        <Pencil size={15} />
+                        Edit Product
+                      </button>
                       <button
                         type="button"
                         className="sp-button sp-button-danger sp-small-button"
@@ -531,6 +566,7 @@ export default function SupervisorPanel({ onLogout }) {
               onCopy={copyCustomerId}
               onArchive={archiveCustomer}
               onDelete={removeCustomer}
+              onEdit={setEditingCustomer}
               onRestore={restoreCustomer}
               onView={setSelectedCustomer}
             />
@@ -572,9 +608,12 @@ export default function SupervisorPanel({ onLogout }) {
                     <dd>{formatMoney(selectedCustomer.monthlyAmount)}</dd>
                     <dt>Payment Method</dt>
                     <dd>
-                      {selectedCustomer.paymentMethod === "card"
-                        ? "Credit / Debit Card"
-                        : "Bank Transfer"}
+                      {selectedCustomer.paymentMethods?.includes("bank") &&
+                      selectedCustomer.paymentMethods?.includes("card")
+                        ? "Bank Transfer, Credit/Debit Card"
+                        : selectedCustomer.paymentMethod === "card"
+                          ? "Credit/Debit Card"
+                          : "Bank Transfer"}
                     </dd>
                     <dt>Bank Account</dt>
                     <dd>
@@ -613,6 +652,82 @@ export default function SupervisorPanel({ onLogout }) {
                 </div>
               </div>
             )}
+          </div>
+        )}
+
+        {editingCustomer && (
+          <div className="sp-modal-backdrop" onClick={() => setEditingCustomer(null)}>
+            <form
+              className="sp-modal"
+              onClick={(event) => event.stopPropagation()}
+              onSubmit={async (event) => {
+                event.preventDefault();
+                const form = new FormData(event.currentTarget);
+                const methods = [
+                  form.get("payBank") ? "bank" : "",
+                  form.get("payCard") ? "card" : "",
+                ].filter(Boolean);
+                if (!methods.length) {
+                  setMessage("Select at least one payment method.");
+                  return;
+                }
+                setSaving(true);
+                try {
+                  await updateCustomerDetails({
+                    id: editingCustomer.id,
+                    name: String(form.get("name") || ""),
+                    phone: String(form.get("phone") || ""),
+                    locationPin: String(form.get("locationPin") || ""),
+                    paymentMethod: methods.join(","),
+                  });
+                  setEditingCustomer(null);
+                  setReloadKey((value) => value + 1);
+                  setMessage("Customer updated.");
+                } catch (error) {
+                  setMessage(error.message);
+                } finally {
+                  setSaving(false);
+                }
+              }}
+            >
+              <div className="sp-modal-heading">
+                <h2>Edit customer</h2>
+                <button type="button" onClick={() => setEditingCustomer(null)} aria-label="Close">
+                  ×
+                </button>
+              </div>
+              <Field label="Name">
+                <input name="name" defaultValue={editingCustomer.name} required />
+              </Field>
+              <Field label="Mobile">
+                <input name="phone" defaultValue={editingCustomer.phone} required />
+              </Field>
+              <Field label="Location" full>
+                <input name="locationPin" defaultValue={editingCustomer.locationPin} />
+              </Field>
+              <label className="sp-checkbox">
+                <input
+                  type="checkbox"
+                  name="payBank"
+                  defaultChecked={
+                    !editingCustomer.paymentMethods?.length ||
+                    editingCustomer.paymentMethods.includes("bank")
+                  }
+                />
+                Bank Transfer
+              </label>
+              <label className="sp-checkbox">
+                <input
+                  type="checkbox"
+                  name="payCard"
+                  defaultChecked={editingCustomer.paymentMethods?.includes("card")}
+                />
+                Credit/Debit Card
+              </label>
+              <button type="submit" className="sp-button sp-button-primary" disabled={saving}>
+                {saving ? "Saving..." : "Save"}
+              </button>
+            </form>
           </div>
         )}
       </div>
@@ -657,6 +772,7 @@ function CustomerTable({
   onCopy,
   onArchive,
   onDelete,
+  onEdit,
   onRestore,
   onView,
 }) {
@@ -721,6 +837,16 @@ function CustomerTable({
                       onClick={() => onArchive(customer)}
                     >
                       <Archive size={16} />
+                    </button>
+                  )}
+                  {onEdit && (
+                    <button
+                      type="button"
+                      className="sp-icon-button"
+                      title="Edit customer"
+                      onClick={() => onEdit(customer)}
+                    >
+                      <Pencil size={16} />
                     </button>
                   )}
                   {onDelete && (

@@ -39,9 +39,12 @@
 .admin-logo {
   display: block;
   flex-shrink: 0;
-  width: 78px;
-  height: 28px;
-  background: transparent;
+  width: auto;
+  height: 32px;
+  padding: 4px 8px;
+  object-fit: contain;
+  background: #fff;
+  border-radius: 8px;
 }
 
 .admin-delete-icon {
@@ -782,6 +785,41 @@
   font-size: 19px;
 }
 
+.admin-modal label {
+  display: grid;
+  gap: 6px;
+  margin-bottom: 12px;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.admin-modal input {
+  min-height: 42px;
+  padding: 0 12px;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  font: inherit;
+}
+
+.admin-check {
+  display: flex !important;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+}
+
+.admin-check input {
+  width: 18px;
+  min-height: 18px;
+}
+
+.admin-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 8px;
+}
+
 .admin-modal-heading button {
   display: grid;
   place-items: center;
@@ -909,7 +947,7 @@
   }
 
   .admin-shell .admin-logo {
-    width: 78px;
+    width: auto;
     height: 28px;
   }
 
@@ -1194,9 +1232,9 @@
 }
 
 .admin-shell .admin-logo {
-  background: transparent !important;
-  width: 78px;
-  height: 28px;
+  background: #fff !important;
+  width: auto;
+  height: 32px;
 }
 
 .admin-shell .admin-notification-dot {
@@ -1231,5 +1269,5 @@
 }
 
 .admin-shell .admin-logo {
-  background-color: transparent !important;
+  background-color: #fff !important;
 }

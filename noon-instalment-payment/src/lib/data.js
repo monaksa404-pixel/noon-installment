@@ -88,6 +88,19 @@ function fail(error) {
   throw new Error(message);
 }
 
+function sellerLabel(description) {
+  const text = String(description || "");
+  if (text === "__seller_type_normal__" || text === "normal") return "Normal";
+  if (
+    text === "__seller_type_noon__" ||
+    text === "noon" ||
+    text.includes("seller_type_noon")
+  ) {
+    return "Sold by Noon";
+  }
+  return "";
+}
+
 function mapProduct(item) {
   return {
     id: item.id,
@@ -138,6 +151,11 @@ function assignedBank(row) {
 function mapCustomer(row, idDocument = "", payments = []) {
   const contract = latestContract(row);
   const instalmentRows = contract?.instalments || [];
+  const tracksEnable = instalmentRows.some((item) => typeof item.enabled === "boolean");
+  const firstOpenMonth = instalmentRows
+    .filter((item) => Number(item.month_number) > 0)
+    .filter((item) => item.status !== "paid" && !item.paid_at)
+    .sort((left, right) => Number(left.month_number) - Number(right.month_number))[0];
   const schedule = instalmentRows
     .filter((item) => Number(item.month_number) > 0)
     .sort((left, right) => Number(left.month_number) - Number(right.month_number))
@@ -147,12 +165,13 @@ function mapCustomer(row, idDocument = "", payments = []) {
       amount: Number(item.amount || 0),
       dueDate: item.due_date || "",
       paid: item.status === "paid" || Boolean(item.paid_at),
-      enabled: Boolean(item.enabled),
+      enabled: tracksEnable
+        ? Boolean(item.enabled)
+        : Number(item.month_number) === Number(firstOpenMonth?.month_number),
     }));
   const downRow = instalmentRows.find((item) => Number(item.month_number) === 0);
   const products = (row.customer_products || []).map((item) => {
     const catalog = Array.isArray(item.products) ? item.products[0] : item.products;
-    const description = catalog?.description || "";
     return {
       id: item.product_id,
       name: item.product_name,
@@ -162,19 +181,18 @@ function mapCustomer(row, idDocument = "", payments = []) {
           ? catalog.image_path
           : supabase.storage.from("product-images").getPublicUrl(catalog.image_path).data?.publicUrl || ""
         : "",
-      sellerType:
-        description === "__seller_type_normal__"
-          ? "Normal"
-          : description === "__seller_type_noon__"
-            ? "Sold by Noon"
-            : "",
+      sellerType: sellerLabel(catalog?.description),
     };
   });
   if (!products.length && contract?.product_name) {
+    const catalog = (row.customer_products || [])
+      .map((item) => (Array.isArray(item.products) ? item.products[0] : item.products))
+      .find(Boolean);
     products.push({
       id: contract.product_id,
       name: contract.product_name,
       price: Number(contract.total_amount || 0),
+      sellerType: sellerLabel(catalog?.description),
     });
   }
   const downPayment = Number(contract?.down_payment || 0);
@@ -206,7 +224,9 @@ function mapCustomer(row, idDocument = "", payments = []) {
           amount: Number(downRow.amount || downPayment),
           dueDate: downRow.due_date || "Due now",
           paid: downRow.status === "paid" || Boolean(downRow.paid_at),
-          enabled: Boolean(downRow.enabled),
+          enabled: tracksEnable
+            ? Boolean(downRow.enabled)
+            : !(downRow.status === "paid" || downRow.paid_at),
         }
       : null,
     paidDownPayment: downPayment <= 0 || !downRow || downRow.status === "paid" || Boolean(downRow.paid_at),
@@ -427,12 +447,20 @@ async function uploadToBucket(bucket, file, folder) {
 }
 
 export async function listProducts() {
-  const { data, error } = await supabase
+  let { data, error } = await supabase
     .from("products")
     .select("id, name, description, price, image_path, is_active, created_at")
     .eq("is_active", true)
     .order("created_at", { ascending: false });
-  if (error) fail(error);
+  if (error) {
+    const retry = await supabase
+      .from("products")
+      .select("id, name, price, is_active")
+      .eq("is_active", true);
+    data = retry.data;
+    error = retry.error;
+  }
+  if (error) return [];
   return (data || []).map(mapProduct);
 }
 
@@ -465,6 +493,43 @@ export async function saveProduct({ name, price, sellerType, file }) {
   return mapProduct(data);
 }
 
+export async function updateProduct({ id, name, price, sellerType }) {
+  const { data, error } = await supabase
+    .from("products")
+    .update({
+      name: name.trim(),
+      price: Number(price),
+      description:
+        sellerType === "normal"
+          ? "__seller_type_normal__"
+          : "__seller_type_noon__",
+    })
+    .eq("id", id)
+    .select("id, name, description, price, image_path, is_active, created_at")
+    .single();
+  if (error) fail(error);
+  return mapProduct(data);
+}
+
+export async function updateCustomerDetails({
+  id,
+  name,
+  phone,
+  locationPin,
+  paymentMethod,
+}) {
+  const { error } = await supabase.rpc("update_customer_details", {
+    p_id: id,
+    payload: {
+      name,
+      phone,
+      location_pin: locationPin,
+      payment_method: paymentMethod,
+    },
+  });
+  if (error) fail(error);
+}
+
 export async function deactivateProduct(id) {
   const { error } = await supabase
     .from("products")
@@ -488,7 +553,7 @@ export async function listBanks() {
     data = retry.data;
     error = retry.error;
   }
-  if (error) fail(error);
+  if (error) return [];
   return (data || []).map((item) => mapBank(item));
 }
 
@@ -531,23 +596,50 @@ async function attachCatalog(rows) {
   const list = Array.isArray(rows) ? rows : rows ? [rows] : [];
   const ids = [
     ...new Set(
-      list
-        .flatMap((row) => row.customer_products || [])
-        .map((item) => item.product_id)
-        .filter(Boolean)
+      list.flatMap((row) => [
+        ...(row.customer_products || []).map((item) => item.product_id),
+        ...(row.instalment_contracts || []).map((item) => item.product_id),
+      ]).filter(Boolean)
     ),
   ];
-  if (!ids.length) return rows;
-  const { data } = await supabase
-    .from("products")
-    .select("id, image_path, description")
-    .in("id", ids);
+  const names = [
+    ...new Set(
+      list.flatMap((row) => [
+        ...(row.customer_products || []).map((item) => item.product_name),
+        ...(row.instalment_contracts || []).map((item) => item.product_name),
+      ]).filter(Boolean)
+    ),
+  ];
+  if (!ids.length && !names.length) return rows;
+  const found = [];
+  if (ids.length) {
+    let result = await supabase
+      .from("products")
+      .select("id, name, image_path, description")
+      .in("id", ids);
+    if (result.error) {
+      result = await supabase.from("products").select("id, name, description").in("id", ids);
+    }
+    found.push(...(result.data || []));
+  }
+  if (names.length) {
+    let result = await supabase
+      .from("products")
+      .select("id, name, image_path, description")
+      .in("name", names);
+    if (result.error) {
+      result = await supabase.from("products").select("id, name, description").in("name", names);
+    }
+    found.push(...(result.data || []));
+  }
+  const data = found;
   const catalog = Object.fromEntries((data || []).map((item) => [item.id, item]));
+  const byName = Object.fromEntries((data || []).map((item) => [item.name, item]));
   const mapped = list.map((row) => ({
     ...row,
     customer_products: (row.customer_products || []).map((item) => ({
       ...item,
-      products: item.products || catalog[item.product_id] || null,
+      products: item.products || catalog[item.product_id] || byName[item.product_name] || null,
     })),
   }));
   return Array.isArray(rows) ? mapped : mapped[0] || null;

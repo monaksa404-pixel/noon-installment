@@ -747,7 +747,40 @@ begin
 end;
 $$;
 
+create or replace function public.update_customer_details(p_id uuid, payload jsonb)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  method text;
+begin
+  method := lower(btrim(coalesce(payload->>'payment_method', '')));
+  if method <> '' and method !~ 'bank' and method !~ 'card' then
+    raise exception 'Select a payment method';
+  end if;
+
+  update public.customers
+  set
+    name = coalesce(nullif(btrim(payload->>'name'), ''), name),
+    full_name = coalesce(nullif(btrim(payload->>'name'), ''), full_name),
+    phone = coalesce(nullif(btrim(payload->>'phone'), ''), phone),
+    mobile = coalesce(nullif(btrim(payload->>'phone'), ''), mobile),
+    location_pin = coalesce(nullif(btrim(payload->>'location_pin'), ''), location_pin),
+    city = coalesce(nullif(btrim(payload->>'location_pin'), ''), city),
+    address = coalesce(nullif(btrim(payload->>'location_pin'), ''), address),
+    payment_method = case when method = '' then payment_method else method end
+  where id = p_id;
+
+  if not found then
+    raise exception 'Customer not found';
+  end if;
+end;
+$$;
+
 grant execute on function public.enable_next_instalment(uuid) to anon, authenticated;
 grant execute on function public.delete_customer(uuid) to anon, authenticated;
+grant execute on function public.update_customer_details(uuid, jsonb) to anon, authenticated;
 
 notify pgrst, 'reload schema';
