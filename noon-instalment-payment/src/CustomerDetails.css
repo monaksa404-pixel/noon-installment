@@ -111,7 +111,7 @@
 /* Customer information and map columns */
 .customer-details .cd-profile-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr);
   align-items: stretch;
   gap: 8px;
   margin-bottom: 8px;
@@ -622,6 +622,111 @@
 .customer-details .cd-installment.is-pending {
   background: #fff;
   color: #333;
+}
+
+.customer-details .cd-installment.is-current,
+.customer-details .cd-down-payment.is-current {
+  background: #ffe600;
+  border-color: #e2c200;
+  color: #111;
+}
+
+.customer-details .cd-down-payment.is-paid {
+  background: var(--cd-green);
+  border-color: var(--cd-green);
+  color: #fff;
+}
+
+.customer-details .cd-down-payment.is-paid .cd-payment-status,
+.customer-details .cd-down-payment.is-paid .cd-down-amount,
+.customer-details .cd-down-payment.is-paid h3,
+.customer-details .cd-down-payment.is-paid small {
+  color: #fff;
+}
+
+.cd-id-image {
+  display: block;
+  width: 100%;
+  height: 360px;
+  object-fit: contain;
+  border-radius: 8px;
+  background: #f7f7f7;
+}
+
+.cd-code-top,
+.cd-statement-button,
+.cd-popup {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.cd-statement-button,
+.cd-popup button {
+  border: 0;
+  border-radius: 6px;
+  background: #111;
+  color: #ffe600;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.cd-code-product {
+  display: grid;
+  margin-top: 6px;
+}
+
+.cd-code-product small {
+  color: #555;
+}
+
+.cd-product-list img {
+  width: 48px;
+  height: 48px;
+  object-fit: cover;
+  border-radius: 6px;
+}
+
+.cd-activity,
+.cd-options p {
+  margin: 6px 0;
+}
+
+.cd-activity.is-green strong { color: #0b7a32; }
+.cd-activity.is-red strong { color: #c62828; }
+.cd-activity.is-yellow strong { color: #8a6a00; }
+.cd-activity.is-blue strong { color: #1558b0; }
+
+.cd-popup {
+  position: sticky;
+  top: 8px;
+  z-index: 5;
+  margin-bottom: 8px;
+  padding: 8px;
+  border-radius: 8px;
+  background: #fff;
+  border: 1px solid #e5e5e5;
+}
+
+.cd-popup.is-green { border-color: #0b7a32; }
+.cd-popup.is-red { border-color: #c62828; }
+.cd-popup.is-yellow { border-color: #e2c200; }
+.cd-popup.is-blue { border-color: #1558b0; }
+
+.cd-popup-logo {
+  width: 54px;
+  height: 20px;
+  flex-shrink: 0;
+}
+
+.cd-popup div {
+  display: grid;
+  flex: 1;
+}
+
+.cd-popup button {
+  width: 28px;
+  height: 28px;
 }
 
 .customer-details .cd-installment-top {

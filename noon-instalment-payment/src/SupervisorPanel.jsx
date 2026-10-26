@@ -8,6 +8,7 @@ import {
   LogOut,
   Package,
   RotateCcw,
+  Eye,
   Search,
   ShieldCheck,
   Trash2,
@@ -21,8 +22,10 @@ import {
   listCustomers,
   listProducts,
   saveProduct,
+  deleteCustomer,
   setCustomerArchived,
 } from "./lib/data.js";
+import NoonLogo from "./NoonLogo";
 import "./SupervisorPanel.css";
 
 const initialProductForm = {
@@ -155,6 +158,18 @@ export default function SupervisorPanel({ onLogout }) {
     }
   }
 
+  async function removeCustomer(customer) {
+    if (!window.confirm("Are you sure you want to delete this customer?")) return;
+    try {
+      await deleteCustomer(customer.id);
+      setSelectedCustomer(null);
+      setReloadKey((value) => value + 1);
+      setMessage("Customer deleted.");
+    } catch (error) {
+      setMessage(error.message);
+    }
+  }
+
   async function archiveCustomer(customer) {
     if (!window.confirm(`Archive the record for ${customer.name}?`)) {
       return;
@@ -223,7 +238,7 @@ export default function SupervisorPanel({ onLogout }) {
     <section className="sp-shell">
       <header className="sp-header">
         <div className="sp-brand">
-          <div className="sp-brand-icon">n</div>
+          <NoonLogo className="sp-brand-icon noon-logo" />
           <div>
             <strong>NOON INSTALMENT</strong>
             <span>SUPERVISOR PANEL</span>
@@ -515,6 +530,7 @@ export default function SupervisorPanel({ onLogout }) {
               archived={page === "archived"}
               onCopy={copyCustomerId}
               onArchive={archiveCustomer}
+              onDelete={removeCustomer}
               onRestore={restoreCustomer}
               onView={setSelectedCustomer}
             />
@@ -640,6 +656,7 @@ function CustomerTable({
   archived = false,
   onCopy,
   onArchive,
+  onDelete,
   onRestore,
   onView,
 }) {
@@ -685,7 +702,7 @@ function CustomerTable({
                     title="View customer details"
                     onClick={() => onView(customer)}
                   >
-                    <Users size={16} />
+                    <Eye size={16} />
                   </button>
                   {archived ? (
                     <button
@@ -704,6 +721,16 @@ function CustomerTable({
                       onClick={() => onArchive(customer)}
                     >
                       <Archive size={16} />
+                    </button>
+                  )}
+                  {onDelete && (
+                    <button
+                      type="button"
+                      className="sp-icon-button sp-delete"
+                      title="Delete customer"
+                      onClick={() => onDelete(customer)}
+                    >
+                      <Trash2 size={16} />
                     </button>
                   )}
                 </div>

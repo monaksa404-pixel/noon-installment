@@ -25,16 +25,22 @@ export default function CustomerPlanForm({
   const [selected, setSelected] = useState([]);
   const [downPayment, setDownPayment] = useState("");
   const [duration, setDuration] = useState("12");
-  const [paymentMethod, setPaymentMethod] = useState("bank");
+  const [payBank, setPayBank] = useState(true);
+  const [payCard, setPayCard] = useState(false);
   const [bankAccountId, setBankAccountId] = useState("");
   const [message, setMessage] = useState("");
   const [saving, setSaving] = useState(false);
   const [formKey, setFormKey] = useState(0);
 
-  const chosen = useMemo(
-    () => products.filter((product) => selected.includes(product.id)),
-    [products, selected]
+  const catalog = useMemo(
+    () => [...products].sort((left, right) => left.name.localeCompare(right.name)),
+    [products]
   );
+  const chosen = useMemo(
+    () => catalog.filter((product) => selected.includes(product.id)),
+    [catalog, selected]
+  );
+  const paymentMethod = [payBank && "bank", payCard && "card"].filter(Boolean).join(",");
   const total = chosen.reduce((sum, product) => sum + Number(product.price || 0), 0);
   const deposit = Number(downPayment || 0);
   const months = Number(duration || 0);
@@ -66,6 +72,10 @@ export default function CustomerPlanForm({
     }
     if (!idFile) {
       setMessage("Upload the customer ID document.");
+      return;
+    }
+    if (!paymentMethod) {
+      setMessage("Select at least one payment method.");
       return;
     }
     if (!chosen.length) {
@@ -174,13 +184,16 @@ export default function CustomerPlanForm({
           />
         </label>
         <div className={fullClass}>
-          <span>Products *</span>
+          <span>Product Selection *</span>
           <div className="plan-products">
             {products.length === 0 && (
               <small>No products yet. Add a product first.</small>
             )}
-            {products.map((product) => (
-              <label className="plan-product" key={product.id}>
+            {catalog.map((product) => (
+              <label
+                className={`plan-product${selected.includes(product.id) ? " is-selected" : ""}`}
+                key={product.id}
+              >
                 <input
                   type="checkbox"
                   checked={selected.includes(product.id)}
@@ -226,16 +239,25 @@ export default function CustomerPlanForm({
           Monthly instalment
           <input value={total ? monthly.toFixed(2) : ""} readOnly />
         </label>
-        <label className={fieldClass}>
-          Payment method *
-          <select
-            value={paymentMethod}
-            onChange={(e) => setPaymentMethod(e.target.value)}
-          >
-            <option value="bank">Bank Transfer</option>
-            <option value="card">Credit / Debit Card</option>
-          </select>
-        </label>
+        <div className={fieldClass}>
+          Payment methods *
+          <label className="plan-check">
+            <input
+              type="checkbox"
+              checked={payBank}
+              onChange={(e) => setPayBank(e.target.checked)}
+            />
+            Bank Transfer
+          </label>
+          <label className="plan-check">
+            <input
+              type="checkbox"
+              checked={payCard}
+              onChange={(e) => setPayCard(e.target.checked)}
+            />
+            Credit/Debit Card
+          </label>
+        </div>
         <label className={fieldClass}>
           Bank account *
           <select

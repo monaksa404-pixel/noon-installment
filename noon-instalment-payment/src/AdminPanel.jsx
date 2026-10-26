@@ -1,9 +1,12 @@
+import NoonLogo from "./NoonLogo";
 import "./AdminPanel.css";
 import { useEffect, useMemo, useState } from "react";
 import CustomerPlanForm from "./CustomerPlanForm";
 import {
   deactivateBank,
   deactivateProduct,
+  deleteCustomer,
+  enableNextInstalment,
   deleteSupervisor as removeSupervisorRecord,
   listBanks,
   listCustomers,
@@ -175,6 +178,18 @@ export default function AdminPanel({ onLogout }) {
     );
   }, [products, search]);
 
+  async function removeCustomer(customer) {
+    if (!window.confirm("Are you sure you want to delete this customer?")) return;
+    try {
+      await deleteCustomer(customer.id);
+      setSelectedCustomer(null);
+      await refresh();
+      notify("Customer deleted.");
+    } catch (error) {
+      notify(error.message);
+    }
+  }
+
   async function archiveCustomer(customer) {
     if (!window.confirm(`Archive ${customer.name}'s record?`)) return;
     try {
@@ -275,6 +290,7 @@ export default function AdminPanel({ onLogout }) {
         accountName: "",
         iban: "",
         instructions: "",
+        qrFile: null,
       });
       await refresh();
       notify("Bank account saved.");
@@ -404,7 +420,7 @@ export default function AdminPanel({ onLogout }) {
     <div className="admin-shell">
       <header className="admin-topbar">
         <div className="admin-brand">
-          <span className="admin-logo">n</span>
+          <NoonLogo className="admin-logo noon-logo" />
           <span>
             <strong>NOON INSTALMENT</strong>
             <small>ADMIN CONTROL CENTER</small>
@@ -634,6 +650,7 @@ export default function AdminPanel({ onLogout }) {
                   customers={customers.slice(0, 5)}
                   onView={setSelectedCustomer}
                   onArchive={archiveCustomer}
+                  onDelete={removeCustomer}
                 />
               </section>
             </>
@@ -661,6 +678,7 @@ export default function AdminPanel({ onLogout }) {
                 customers={filteredCustomers}
                 onView={setSelectedCustomer}
                 onArchive={archiveCustomer}
+                onDelete={removeCustomer}
               />
             </section>
           )}
@@ -991,6 +1009,19 @@ export default function AdminPanel({ onLogout }) {
                       }
                     />
                   </label>
+                  <label>
+                    QR code
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) =>
+                        setBankForm((current) => ({
+                          ...current,
+                          qrFile: e.target.files?.[0] || null,
+                        }))
+                      }
+                    />
+                  </label>
                   <button type="submit" className="admin-primary-button">
                     <Save size={17} />
                     Save Bank Account
@@ -1280,6 +1311,7 @@ export default function AdminPanel({ onLogout }) {
                   customers={customers}
                   onView={setSelectedCustomer}
                   onArchive={archiveCustomer}
+                  onDelete={removeCustomer}
                 />
               </section>
             </>
@@ -1370,6 +1402,23 @@ export default function AdminPanel({ onLogout }) {
                 selectedCustomer.hasIdDocument ? "Uploaded" : "Not uploaded"
               }
             />
+
+            <button
+              type="button"
+              className="admin-primary-button admin-modal-link"
+              onClick={async () => {
+                try {
+                  await enableNextInstalment(selectedCustomer.id);
+                  await refresh();
+                  setSelectedCustomer(null);
+                  notify("Next instalment enabled.");
+                } catch (error) {
+                  notify(error.message);
+                }
+              }}
+            >
+              Enable next instalment
+            </button>
 
             {selectedCustomer.locationPin?.startsWith("http") && (
               <a
@@ -1549,7 +1598,7 @@ function Detail({ label, value }) {
   );
 }
 
-function CustomerTable({ customers, onView, onArchive }) {
+function CustomerTable({ customers, onView, onArchive, onDelete }) {
   if (!customers.length) {
     return (
       <EmptyState
@@ -1602,6 +1651,16 @@ function CustomerTable({ customers, onView, onArchive }) {
                   >
                     <Archive size={16} />
                   </button>
+                  {onDelete && (
+                    <button
+                      type="button"
+                      className="admin-icon-button admin-delete-icon"
+                      title="Delete customer"
+                      onClick={() => onDelete(customer)}
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  )}
                 </div>
               </td>
             </tr>

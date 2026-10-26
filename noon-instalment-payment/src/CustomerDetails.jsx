@@ -1,12 +1,12 @@
 
-import React from "react";
+import React, { useEffect, useState } from "react";
+import NoonLogo from "./NoonLogo";
 import {
   UserRound,
   Phone,
   MapPin,
   ShieldCheck,
   FileText,
-  Eye,
   Smartphone,
   CalendarDays,
   Wallet,
@@ -86,9 +86,58 @@ export default function CustomerDetails({
     : customer.mapUrl ||
       `https://maps.google.com/?q=${encodeURIComponent(mapQuery)}`;
 
+  const activity = customer.activity || [];
+  const [statementOpen, setStatementOpen] = useState(false);
+  const [popup, setPopup] = useState(null);
+  const methods = customer.paymentMethods?.length
+    ? customer.paymentMethods
+    : ["bank"];
+
+  const latestId = activity[0]?.id || "";
+  useEffect(() => {
+    const latest = activity[0];
+    if (!latest) {
+      setPopup(null);
+      return;
+    }
+    const seen = sessionStorage.getItem(`noon-note-${customer.code}-${latest.id}`);
+    setPopup(seen ? null : latest);
+  }, [customer.code, latestId]);
+
+  function closePopup() {
+    if (popup) {
+      sessionStorage.setItem(`noon-note-${customer.code}-${popup.id}`, "1");
+    }
+    setPopup(null);
+  }
+
+  function when(value) {
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return "";
+    return date.toLocaleString("en-GB", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  }
+
   return (
     <main className="customer-details">
       <div className="cd-body">
+        {popup && (
+          <div className={`cd-popup is-${popup.tone}`}>
+            <NoonLogo className="cd-popup-logo" />
+            <div>
+              <strong>{popup.text}</strong>
+              {popup.at && <small>{when(popup.at)}</small>}
+            </div>
+            <button type="button" onClick={closePopup} aria-label="Close">
+              ×
+            </button>
+          </div>
+        )}
         {onBack && (
           <button className="cd-back" onClick={onBack}>
             <ArrowLeft size={15} />
@@ -96,22 +145,7 @@ export default function CustomerDetails({
           </button>
         )}
 
-        <div className="cd-title-row">
-          <div>
-            <span className="cd-eyebrow">CUSTOMER PROFILE</span>
-            <h1>Customer Details</h1>
-            <p>Review your account and instalment plan.</p>
-          </div>
-
-          <div className="cd-code">
-            <span>Customer Code</span>
-            <strong>{customer.code}</strong>
-          </div>
-        </div>
-
-        {/* Customer information and location */}
         <section className="cd-profile-grid">
-          {/* Customer information */}
           <div className="cd-card cd-profile-card">
             <div className="cd-section-heading">
               <div className="cd-icon-box">
@@ -122,19 +156,15 @@ export default function CustomerDetails({
                 <p>Registered information</p>
               </div>
             </div>
-
             <div className="cd-person">
               <div className="cd-person-info">
                 <h3>{customer.name}</h3>
-
                 <div className="cd-phone">
                   <Phone size={12} />
                   <span>{customer.phone || "Number not provided"}</span>
                 </div>
               </div>
             </div>
-
-            {/* Only Verified or Pending */}
             <div className="cd-verified-row">
               <ShieldCheck size={13} />
               <span
@@ -148,8 +178,6 @@ export default function CustomerDetails({
               </span>
             </div>
           </div>
-
-          {/* Customer location and direct map */}
           <div className="cd-card cd-location-card">
             <div className="cd-section-heading">
               <div className="cd-icon-box">
@@ -160,7 +188,6 @@ export default function CustomerDetails({
                 <p>Location added by Admin</p>
               </div>
             </div>
-
             <div className="cd-map-box">
               <iframe
                 title="Customer Google Maps Location"
@@ -173,25 +200,59 @@ export default function CustomerDetails({
                 referrerPolicy="no-referrer-when-downgrade"
               />
             </div>
-
             <div className="cd-location-name">
               <MapPin size={14} />
-              <strong>
-                {customer.city || "Location not added"}
-              </strong>
+              <strong>{customer.city || "Location not added"}</strong>
             </div>
-
-            <a
-              className="cd-map-link"
-              href={mapOpenUrl}
-              target="_blank"
-              rel="noreferrer"
-            >
+            <a className="cd-map-link" href={mapOpenUrl} target="_blank" rel="noreferrer">
               Open Google Maps
               <ExternalLink size={12} />
             </a>
           </div>
         </section>
+
+        <div className="cd-title-row">
+          <div>
+            <span className="cd-eyebrow">CUSTOMER PROFILE</span>
+            <h1>Customer Details</h1>
+            <p>Review your account and instalment plan.</p>
+          </div>
+
+          <div className="cd-code">
+            <div className="cd-code-top">
+              <div>
+                <span>Customer Code</span>
+                <strong>{customer.code}</strong>
+              </div>
+              <button
+                type="button"
+                className="cd-statement-button"
+                onClick={() => setStatementOpen((open) => !open)}
+              >
+                Statement
+              </button>
+            </div>
+            {(customer.products || []).map((product) => (
+              <div className="cd-code-product" key={`${product.id}-${product.name}`}>
+                <b>{product.name}</b>
+                {product.sellerType && <small>{product.sellerType}</small>}
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {statementOpen && (
+          <section className="cd-card cd-statement">
+            <h2>Statement</h2>
+            {activity.length === 0 && <p>No activity yet.</p>}
+            {activity.map((item) => (
+              <div className={`cd-activity is-${item.tone}`} key={item.id}>
+                <strong>{item.text}</strong>
+                <small>{when(item.at)}</small>
+              </div>
+            ))}
+          </section>
+        )}
 
         {/* Customer ID document */}
         <section className="cd-card cd-document-card">
@@ -202,36 +263,17 @@ export default function CustomerDetails({
 
             <div>
               <h2>Customer ID Document</h2>
-              <p>Uploaded by admin for this customer code</p>
             </div>
-
-            {customer.idDocumentUrl && (
-              <a
-                className="cd-view-document"
-                href={customer.idDocumentUrl}
-                target="_blank"
-                rel="noreferrer"
-                aria-label="View customer ID"
-              >
-                <Eye size={15} />
-              </a>
-            )}
           </div>
 
           {customer.idDocumentUrl ? (
-            <a
-              className="cd-document-preview"
-              href={customer.idDocumentUrl}
-              target="_blank"
-              rel="noreferrer"
+            <object
+              className="cd-id-image"
+              data={customer.idDocumentUrl}
+              aria-label="Customer ID document"
             >
-              <FileText size={20} />
-              <span>
-                <strong>Customer ID Document</strong>
-                <small>Uploaded by Admin</small>
-              </span>
-              <ExternalLink size={14} />
-            </a>
+              <img src={customer.idDocumentUrl} alt="Customer ID document" />
+            </object>
           ) : (
             <div className="cd-document-empty">
               <FileText size={17} />
@@ -258,20 +300,13 @@ export default function CustomerDetails({
             </div>
           </div>
 
-          <div className="cd-product">
-            <div className="cd-product-icon">
-              <Smartphone size={21} />
-            </div>
-            <div className="cd-product-info">
-              <h3>{customer.productName || customer.product}</h3>
-              <small>Customer Code: {customer.code}</small>
-            </div>
-          </div>
-
           {Array.isArray(customer.products) && customer.products.length > 0 && (
             <ul className="cd-product-list">
               {customer.products.map((product) => (
                 <li key={`${product.id}-${product.name}`}>
+                  {product.image ? (
+                    <img src={product.image} alt="" />
+                  ) : null}
                   <span>{product.name}</span>
                   <strong>{formatSAR(product.price)}</strong>
                 </li>
@@ -304,15 +339,6 @@ export default function CustomerDetails({
               <span>Monthly Instalment</span>
               <strong>{formatSAR(customer.monthlyAmount)}</strong>
             </div>
-
-            <div className="cd-price-box">
-              <span>Payment Options</span>
-              <strong>
-                {customer.paymentMethod === "card"
-                  ? "Card or bank transfer"
-                  : "Bank transfer or card"}
-              </strong>
-            </div>
           </div>
         </section>
 
@@ -329,7 +355,11 @@ export default function CustomerDetails({
           </div>
 
           {/* Down payment */}
-          <div className="cd-down-payment">
+          <div
+            className={`cd-down-payment ${
+              customer.paidDownPayment ? "is-paid" : "is-current"
+            }`}
+          >
             <div className="cd-down-top">
               <div className="cd-down-icon">
                 <Wallet size={17} />
@@ -370,12 +400,13 @@ export default function CustomerDetails({
             {Array.from({ length: duration }, (_, index) => {
               const month = index + 1;
               const isPaid = paidMonths.includes(month);
+              const isCurrent = (customer.enabledMonths || []).includes(month);
 
               return (
                 <div
                   key={month}
                   className={`cd-installment ${
-                    isPaid ? "is-paid" : "is-pending"
+                    isPaid ? "is-paid" : isCurrent ? "is-current" : "is-pending"
                   }`}
                 >
                   <div className="cd-installment-top">
@@ -396,7 +427,7 @@ export default function CustomerDetails({
                   </span>
 
                   <span className="cd-installment-status">
-                    {isPaid ? "Paid" : "Pending"}
+                    {isPaid ? "Paid" : isCurrent ? "Awaiting payment" : "Pending"}
                   </span>
                 </div>
               );
@@ -433,6 +464,15 @@ export default function CustomerDetails({
             </button>
           )}
         </div>
+
+        <section className="cd-card cd-options">
+          <h2>Payment Options</h2>
+          {methods.map((method) => (
+            <p key={method}>
+              {method === "card" ? "Credit/Debit Card" : "Bank Transfer"}
+            </p>
+          ))}
+        </section>
 
         <footer className="cd-footer">
           <ShieldCheck size={13} />

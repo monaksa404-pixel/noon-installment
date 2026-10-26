@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 
 import CustomerDetails from "./CustomerDetails";
+import NoonLogo from "./NoonLogo";
 import SupervisorPanel from "./SupervisorPanel";
 import "./App.css";
 
@@ -66,7 +67,7 @@ export default function App() {
   function openCustomer(nextCustomer) {
     setCustomer(nextCustomer);
     setStaffLoggedIn("");
-    setMethod(nextCustomer.paymentMethod === "card" ? "card" : "bank");
+    setMethod("");
     setReceiptName("");
     setReceiptFile(null);
     setPaymentTarget(null);
@@ -81,7 +82,7 @@ export default function App() {
       return;
     }
     setPaymentTarget(target);
-    setMethod(customer?.paymentMethod === "card" ? "card" : "bank");
+    setMethod("");
     setReceiptName("");
     setReceiptFile(null);
     setPaymentDone(false);
@@ -268,7 +269,7 @@ export default function App() {
             aria-label="Home"
             type="button"
           >
-            <span className="brand-icon">n</span>
+            <NoonLogo className="brand-icon" />
             <span className="brand-copy">
               <strong>NOON INSTALMENT</strong>
               <small>PAYMENT PORTAL</small>
@@ -417,9 +418,6 @@ export default function App() {
                 </span>
               </div>
 
-              <div className="demo-note">
-                Preview code: <strong>NOON123</strong>
-              </div>
             </section>
           )}
 
@@ -428,8 +426,16 @@ export default function App() {
             <CustomerDetails
               customer={customer}
               onBack={reset}
-              onContinue={() => openPayment(customer.nextDue)}
-              onPayNext={() => openPayment(customer.nextInstalment)}
+              onContinue={
+                customer.canPay && customer.nextDue?.kind === "down_payment"
+                  ? () => openPayment(customer.nextDue)
+                  : undefined
+              }
+              onPayNext={
+                customer.canPay && customer.nextDue?.kind === "instalment"
+                  ? () => openPayment(customer.nextDue)
+                  : undefined
+              }
             />
           )}
 
@@ -486,6 +492,8 @@ export default function App() {
               </h3>
 
               {/* BANK TRANSFER */}
+              {(customer.paymentMethods || ["bank"]).includes("bank") && (
+              <>
               <button
                 type="button"
                 className={`payment-option ${
@@ -518,6 +526,13 @@ export default function App() {
                       {customer.bank.instructions && (
                         <p>{customer.bank.instructions}</p>
                       )}
+                      {customer.bank.qrUrl && (
+                        <img
+                          className="bank-qr"
+                          src={customer.bank.qrUrl}
+                          alt="Bank transfer QR code"
+                        />
+                      )}
                     </>
                   ) : (
                     <p>No bank account is assigned to this customer yet.</p>
@@ -549,8 +564,11 @@ export default function App() {
                   </button>
                 </div>
               )}
+              </>
+              )}
 
-              {/* CREDIT / DEBIT CARD */}
+              {(customer.paymentMethods || ["bank"]).includes("card") && (
+              <>
               <button
                 type="button"
                 className={`payment-option ${
@@ -575,6 +593,8 @@ export default function App() {
                   amount={paymentTarget?.amount || 0}
                   onRequest={submitCard}
                 />
+              )}
+              </>
               )}
 
               {paymentError && (

@@ -37,16 +37,15 @@
 }
 
 .admin-logo {
-  display: grid;
-  place-items: center;
+  display: block;
   flex-shrink: 0;
-  width: 40px;
-  height: 40px;
-  color: #111;
-  background: var(--admin-yellow);
-  border-radius: 9px;
-  font-size: 28px;
-  font-weight: 900;
+  width: 78px;
+  height: 28px;
+  background: transparent;
+}
+
+.admin-delete-icon {
+  color: #d11a2a;
 }
 
 .admin-brand > span:last-child {
@@ -1196,8 +1195,9 @@
 }
 
 .admin-shell .admin-logo {
-  background: #FFDE21 !important;
-  color: #171717 !important;
+  background: transparent !important;
+  width: 78px;
+  height: 28px;
 }
 
 .admin-shell .admin-notification-dot {
@@ -1232,6 +1232,5 @@
 }
 
 .admin-shell .admin-logo {
-  background-color: #FFDE21 !important;
-  color: #171717 !important;
+  background-color: transparent !important;
 }
