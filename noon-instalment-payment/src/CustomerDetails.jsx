@@ -217,29 +217,29 @@ export default function CustomerDetails({
             <h1>Customer Details</h1>
             <p>Review your account and instalment plan.</p>
           </div>
-
-          <div className="cd-code">
-            <div className="cd-code-top">
-              <div>
-                <span>Customer Code</span>
-                <strong>{customer.code}</strong>
-              </div>
-              <button
-                type="button"
-                className="cd-statement-button"
-                onClick={() => setStatementOpen((open) => !open)}
-              >
-                Statement
-              </button>
-            </div>
-            {(customer.products || []).map((product) => (
-              <div className="cd-code-product" key={`${product.id}-${product.name}`}>
-                <b>{product.name}</b>
-                {product.sellerType && <small>{product.sellerType}</small>}
-              </div>
-            ))}
-          </div>
         </div>
+
+        <section className="cd-card cd-code-card">
+          <div className="cd-code-top">
+            <div className="cd-code">
+              <span>Customer Code</span>
+              <strong>{customer.code}</strong>
+            </div>
+            <button
+              type="button"
+              className="cd-statement-button"
+              onClick={() => setStatementOpen((open) => !open)}
+            >
+              Statement
+            </button>
+          </div>
+          {(customer.products || []).map((product) => (
+            <div className="cd-code-product" key={`${product.id}-${product.name}`}>
+              <b>{product.name}</b>
+              {product.sellerType && <small>{product.sellerType}</small>}
+            </div>
+          ))}
+        </section>
 
         {statementOpen && (
           <section className="cd-card cd-statement">

@@ -908,10 +908,9 @@
     gap: 8px;
   }
 
-  .admin-logo {
-    width: 35px;
-    height: 35px;
-    font-size: 25px;
+  .admin-shell .admin-logo {
+    width: 78px;
+    height: 28px;
   }
 
   .admin-brand strong {

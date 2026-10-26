@@ -1,5 +1,42 @@
 import { supabase } from "./supabase.js";
 
+const CUSTOMER_CORE = `
+  id,
+  customer_code,
+  name,
+  full_name,
+  phone,
+  mobile,
+  city,
+  address,
+  location_pin,
+  id_document_path,
+  payment_method,
+  created_by,
+  archived_at,
+  status,
+  created_at,
+  customer_products (product_id, product_name, price),
+  customer_bank_assignments (
+    is_active,
+    bank_accounts (id, bank_name, account_name, iban, instructions)
+  ),
+  instalment_contracts (
+    id,
+    product_id,
+    product_name,
+    total_amount,
+    down_payment,
+    remaining_amount,
+    duration_months,
+    monthly_amount,
+    start_date,
+    status,
+    created_at,
+    instalments (id, month_number, amount, due_date, status, paid_at)
+  )
+`;
+
 const CUSTOMER_SELECT = `
   id,
   customer_code,
@@ -16,7 +53,7 @@ const CUSTOMER_SELECT = `
   archived_at,
   status,
   created_at,
-  customer_products (product_id, product_name, price, products (image_path, description)),
+  customer_products (product_id, product_name, price),
   customer_bank_assignments (
     is_active,
     bank_accounts (id, bank_name, account_name, iban, instructions, qr_path)
@@ -435,11 +472,20 @@ export async function deactivateProduct(id) {
 }
 
 export async function listBanks() {
-  const { data, error } = await supabase
+  let { data, error } = await supabase
     .from("bank_accounts")
     .select("id, bank_name, account_name, iban, instructions, qr_path, is_active")
     .eq("is_active", true)
     .order("created_at", { ascending: false });
+  if (error) {
+    const retry = await supabase
+      .from("bank_accounts")
+      .select("id, bank_name, account_name, iban, instructions, is_active")
+      .eq("is_active", true)
+      .order("created_at", { ascending: false });
+    data = retry.data;
+    error = retry.error;
+  }
   if (error) fail(error);
   return (data || []).map((item) => mapBank(item));
 }
@@ -447,14 +493,15 @@ export async function listBanks() {
 export async function saveBank({ bankName, accountName, iban, instructions, qrFile }) {
   let qrPath = null;
   if (qrFile) qrPath = await uploadToBucket("bank-qr", qrFile, "qr");
-  const { error } = await supabase.from("bank_accounts").insert({
+  const row = {
     bank_name: bankName.trim(),
     account_name: accountName.trim(),
     iban: iban.trim(),
     instructions: instructions.trim(),
-    qr_path: qrPath,
     is_active: true,
-  });
+  };
+  if (qrPath) row.qr_path = qrPath;
+  const { error } = await supabase.from("bank_accounts").insert(row);
   if (error) fail(error);
 }
 
@@ -478,15 +525,54 @@ export async function deactivateBank(id) {
   if (error) fail(error);
 }
 
+async function attachCatalog(rows) {
+  const list = Array.isArray(rows) ? rows : rows ? [rows] : [];
+  const ids = [
+    ...new Set(
+      list
+        .flatMap((row) => row.customer_products || [])
+        .map((item) => item.product_id)
+        .filter(Boolean)
+    ),
+  ];
+  if (!ids.length) return rows;
+  const { data } = await supabase
+    .from("products")
+    .select("id, image_path, description")
+    .in("id", ids);
+  const catalog = Object.fromEntries((data || []).map((item) => [item.id, item]));
+  const mapped = list.map((row) => ({
+    ...row,
+    customer_products: (row.customer_products || []).map((item) => ({
+      ...item,
+      products: item.products || catalog[item.product_id] || null,
+    })),
+  }));
+  return Array.isArray(rows) ? mapped : mapped[0] || null;
+}
+
+async function loadCustomerRows(build) {
+  let result = await build(CUSTOMER_SELECT);
+  if (result.error) result = await build(CUSTOMER_CORE);
+  if (result.error) fail(result.error);
+  return attachCatalog(result.data || []);
+}
+
 async function hydrateCustomers(rows) {
   const ids = (rows || []).map((row) => row.id).filter(Boolean);
   let payments = [];
   if (ids.length) {
-    const { data } = await supabase
+    let paymentResult = await supabase
       .from("payments")
       .select("id, customer_id, instalment_id, status, kind, created_at, reviewed_at")
       .in("customer_id", ids);
-    payments = data || [];
+    if (paymentResult.error) {
+      paymentResult = await supabase
+        .from("payments")
+        .select("id, customer_id, instalment_id, status, created_at, reviewed_at")
+        .in("customer_id", ids);
+    }
+    payments = paymentResult.data || [];
   }
   return Promise.all(
     (rows || []).map(async (row) =>
@@ -500,31 +586,31 @@ async function hydrateCustomers(rows) {
 }
 
 export async function listCustomers(archived = false) {
-  let query = supabase
-    .from("customers")
-    .select(CUSTOMER_SELECT)
-    .order("created_at", { ascending: false });
-  query = archived
-    ? query.not("archived_at", "is", null)
-    : query.is("archived_at", null);
-  const { data, error } = await query;
-  if (error) fail(error);
-  return hydrateCustomers(data);
+  const rows = await loadCustomerRows((columns) => {
+    let query = supabase
+      .from("customers")
+      .select(columns)
+      .order("created_at", { ascending: false });
+    return archived
+      ? query.not("archived_at", "is", null)
+      : query.is("archived_at", null);
+  });
+  return hydrateCustomers(rows);
 }
 
 export async function getCustomerByCode(code) {
-  const { data, error } = await supabase
-    .from("customers")
-    .select(CUSTOMER_SELECT)
-    .eq("customer_code", code)
-    .is("archived_at", null)
-    .maybeSingle();
-  if (error) fail(error);
-  if (!data) return null;
-  return mapCustomer(
-    data,
-    await signedUrl("customer-documents", data.id_document_path)
+  const rows = await loadCustomerRows((columns) =>
+    supabase
+      .from("customers")
+      .select(columns)
+      .eq("customer_code", code)
+      .is("archived_at", null)
+      .maybeSingle()
   );
+  const data = Array.isArray(rows) ? rows[0] : rows;
+  if (!data) return null;
+  const [mapped] = await hydrateCustomers([data]);
+  return mapped;
 }
 
 export async function createCustomer({
@@ -572,12 +658,22 @@ export async function setCustomerArchived(id, archived) {
 }
 
 export async function listPayments() {
-  const { data, error } = await supabase
+  let { data, error } = await supabase
     .from("payments")
     .select(
       "id, customer_id, customer_code, instalment_id, contract_id, amount, payment_method, method, kind, receipt_path, cardholder_name, status, reviewed_at, created_at, customers(customer_code)"
     )
     .order("created_at", { ascending: false });
+  if (error) {
+    const retry = await supabase
+      .from("payments")
+      .select(
+        "id, customer_id, instalment_id, contract_id, amount, payment_method, receipt_path, cardholder_name, status, reviewed_at, created_at, customers(customer_code)"
+      )
+      .order("created_at", { ascending: false });
+    data = retry.data;
+    error = retry.error;
+  }
   if (error) fail(error);
   const instalmentIds = [
     ...new Set((data || []).map((row) => row.instalment_id).filter(Boolean)),
@@ -634,11 +730,20 @@ export async function createPayment({
   }
   if (!code) throw new Error("Customer code is missing.");
 
-  const { data: instalment, error: instalmentError } = await supabase
+  let { data: instalment, error: instalmentError } = await supabase
     .from("instalments")
     .select("id, amount, status, paid_at, contract_id, month_number, enabled")
     .eq("id", instalmentId)
     .maybeSingle();
+  if (instalmentError) {
+    const retry = await supabase
+      .from("instalments")
+      .select("id, amount, status, paid_at, contract_id, month_number")
+      .eq("id", instalmentId)
+      .maybeSingle();
+    instalment = retry.data ? { ...retry.data, enabled: true } : null;
+    instalmentError = retry.error;
+  }
 
   if (instalmentError) fail(instalmentError);
   if (!instalment) throw new Error("Instalment was not found.");

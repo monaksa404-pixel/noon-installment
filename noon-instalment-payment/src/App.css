@@ -276,6 +276,12 @@ button {
   flex: 1;
 }
 
+.content-wrap-details {
+  max-width: none;
+  margin: 0;
+  padding: 0;
+}
+
 .panel {
   background: #fff;
   border: 1px solid var(--line);
@@ -991,6 +997,12 @@ button {
     padding: 0 13px;
     margin-top: -14px;
     margin-bottom: 30px;
+  }
+
+  .content-wrap-details {
+    max-width: none;
+    margin: 0;
+    padding: 0;
   }
 
   .panel {

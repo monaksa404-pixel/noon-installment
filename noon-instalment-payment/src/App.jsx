@@ -350,22 +350,7 @@ export default function App() {
 )}
       {/* CUSTOMER CONTENT */}
       {["code", "details", "payment"].includes(page) && (
-        <main
-          className="content-wrap"
-          style={
-            page === "details"
-              ? {
-                  marginTop: "0",
-                  paddingTop: "0",
-                  position: "relative",
-                  top: "0",
-                  transform: "none",
-                  zIndex: 1,
-                  width: "100%",
-                }
-              : undefined
-          }
-        >
+        <main className={page === "details" ? "content-wrap content-wrap-details" : "content-wrap"}>
           {/* STEP 1: CUSTOMER CODE */}
           {page === "code" && (
             <section className="panel code-panel">
