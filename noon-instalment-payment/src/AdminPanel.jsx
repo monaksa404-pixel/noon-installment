@@ -14,6 +14,7 @@ import {
   listProducts,
   listSupervisors,
   reviewPayment,
+  deletePayment,
   saveBank,
   saveProduct,
   saveSupervisor,
@@ -334,6 +335,18 @@ export default function AdminPanel({ onLogout }) {
       await setCustomerArchived(customer.id, false);
       await refresh();
       notify("Customer record restored.");
+    } catch (error) {
+      notify(error.message);
+    }
+  }
+
+  async function removePayment(payment) {
+    if (!window.confirm("Delete this payment record?")) return;
+    try {
+      await deletePayment(payment.id);
+      setSelectedPayment(null);
+      await refresh();
+      notify("Payment deleted.");
     } catch (error) {
       notify(error.message);
     }
@@ -1137,6 +1150,14 @@ export default function AdminPanel({ onLogout }) {
                                   />
                                 );
                               })()}
+                              <button
+                                type="button"
+                                className="admin-icon-button admin-delete-icon"
+                                title="Delete payment"
+                                onClick={() => removePayment(payment)}
+                              >
+                                <Trash2 size={16} />
+                              </button>
                             </div>
                           </td>
                         </tr>

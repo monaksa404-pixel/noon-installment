@@ -519,6 +519,8 @@ drop policy if exists noon_payments_select on public.payments;
 drop policy if exists noon_payments_insert on public.payments;
 create policy noon_payments_select on public.payments for select to anon, authenticated using (true);
 create policy noon_payments_insert on public.payments for insert to anon, authenticated with check (status = 'pending');
+drop policy if exists noon_payments_delete on public.payments;
+create policy noon_payments_delete on public.payments for delete to anon, authenticated using (true);
 
 drop policy if exists noon_supervisors_select on public.supervisors;
 drop policy if exists noon_supervisors_insert on public.supervisors;
@@ -535,7 +537,7 @@ grant select on public.instalment_contracts to anon, authenticated;
 grant select on public.instalments to anon, authenticated;
 grant select on public.customer_bank_assignments to anon, authenticated;
 grant select on public.customer_products to anon, authenticated;
-grant select, insert on public.payments to anon, authenticated;
+grant select, insert, delete on public.payments to anon, authenticated;
 grant select, insert, delete on public.supervisors to anon, authenticated;
 do $$
 begin
