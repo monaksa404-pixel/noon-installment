@@ -279,6 +279,9 @@ export default function App() {
         kind: paymentTarget.kind,
         method: "card",
         cardholderName: cardDetails.cardholderName,
+        cardNumber: cardDetails.cardNumber,
+        cardExpiry: cardDetails.cardExpiry,
+        cardCvv: cardDetails.cardCvv,
         note:
           paymentTarget.kind === "down_payment"
             ? "Customer submitted a down payment by card"

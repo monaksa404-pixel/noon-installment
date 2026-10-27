@@ -535,6 +535,54 @@
   display: inline-flex;
   align-items: center;
   gap: 8px;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.admin-detail .admin-copy-value {
+  width: 100%;
+  justify-content: space-between;
+}
+
+.admin-detail .admin-copy-value > span:first-child {
+  min-width: 0;
+  flex: 1;
+  font-size: 11px;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.admin-copy-mono {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  letter-spacing: 0.02em;
+}
+
+.admin-copy-compact-label,
+.admin-copy-all-hint {
+  font-size: 11px;
+  font-weight: 600;
+  color: #444;
+}
+
+.admin-card-details-panel {
+  margin: 8px 0 4px;
+  padding: 10px 12px 2px;
+  border: 1px solid #ececec;
+  border-radius: 12px;
+  background: #fafafa;
+}
+
+.admin-card-details-title {
+  margin: 0 0 6px;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #555;
+}
+
+.admin-detail-copy-all {
+  border-bottom: 0;
 }
 
 .admin-copy-value .copy-icon-button {

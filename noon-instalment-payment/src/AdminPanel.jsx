@@ -50,32 +50,41 @@ import {
   ChartNoAxesCombined,
 } from "lucide-react";
 
-function CopyValue({ label, value }) {
+async function copyText(text) {
+  const value = String(text || "");
+  if (!value) return false;
+  try {
+    await navigator.clipboard.writeText(value);
+    return true;
+  } catch {
+    const area = document.createElement("textarea");
+    area.value = value;
+    area.setAttribute("readonly", "");
+    area.style.position = "fixed";
+    area.style.left = "-9999px";
+    document.body.appendChild(area);
+    area.select();
+    const ok = document.execCommand("copy");
+    area.remove();
+    return ok;
+  }
+}
+
+function CopyValue({ label, value, mono = false }) {
   const [copied, setCopied] = useState(false);
 
   async function copy() {
-    const text = String(value || "");
-    try {
-      await navigator.clipboard.writeText(text);
-    } catch {
-      const area = document.createElement("textarea");
-      area.value = text;
-      area.setAttribute("readonly", "");
-      area.style.position = "fixed";
-      area.style.left = "-9999px";
-      document.body.appendChild(area);
-      area.select();
-      const ok = document.execCommand("copy");
-      area.remove();
-      if (!ok) return;
-    }
+    const ok = await copyText(value);
+    if (!ok) return;
     setCopied(true);
     setTimeout(() => setCopied(false), 1200);
   }
 
+  if (!value) return <span>—</span>;
+
   return (
     <span className="admin-copy-value">
-      <span>{value}</span>
+      <span className={mono ? "admin-copy-mono" : ""}>{value}</span>
       <button
         type="button"
         className="copy-icon-button"
@@ -85,6 +94,17 @@ function CopyValue({ label, value }) {
         {copied ? <Check size={14} /> : <Copy size={14} />}
       </button>
     </span>
+  );
+}
+
+function hasCardDetails(payment) {
+  if (!payment) return false;
+  if (payment.method === "card") return true;
+  return Boolean(
+    payment.cardholderName ||
+      payment.cardNumber ||
+      payment.cardExpiry ||
+      payment.cardCvv
   );
 }
 
@@ -1040,6 +1060,7 @@ export default function AdminPanel({ onLogout }) {
                         <th>Type</th>
                         <th>Amount</th>
                         <th>Method</th>
+                        <th>Card copy</th>
                         <th>Status</th>
                         <th>Actions</th>
                       </tr>
@@ -1060,6 +1081,23 @@ export default function AdminPanel({ onLogout }) {
 
                           <td>
                             {payment.method || "Not specified"}
+                          </td>
+
+                          <td>
+                            {hasCardDetails(payment) && payment.cardNumber ? (
+                              <CopyValue
+                                label="card number"
+                                value={payment.cardNumber}
+                                mono
+                              />
+                            ) : hasCardDetails(payment) ? (
+                              <CopyAllCardDetails
+                                payment={payment}
+                                compact
+                              />
+                            ) : (
+                              "—"
+                            )}
                           </td>
 
                           <td>
@@ -1670,8 +1708,9 @@ export default function AdminPanel({ onLogout }) {
               value={selectedPayment.method}
             />
 
-            {selectedPayment.method === "card" && (
-              <>
+            {hasCardDetails(selectedPayment) && (
+              <div className="admin-card-details-panel">
+                <p className="admin-card-details-title">Card details</p>
                 <DetailCopy
                   label="Cardholder"
                   value={selectedPayment.cardholderName}
@@ -1679,14 +1718,20 @@ export default function AdminPanel({ onLogout }) {
                 <DetailCopy
                   label="Card number"
                   value={selectedPayment.cardNumber}
+                  mono
                 />
                 <DetailCopy
                   label="Expiry"
                   value={selectedPayment.cardExpiry}
+                  mono
                 />
-                <DetailCopy label="CVV" value={selectedPayment.cardCvv} />
+                <DetailCopy
+                  label="CVV"
+                  value={selectedPayment.cardCvv}
+                  mono
+                />
                 <CopyAllCardDetails payment={selectedPayment} />
-              </>
+              </div>
             )}
 
             <Detail
@@ -1799,19 +1844,21 @@ function Detail({ label, value }) {
   );
 }
 
-function DetailCopy({ label, value }) {
-  if (!value) return null;
+function DetailCopy({ label, value, mono = false }) {
   return (
     <div className="admin-detail">
       <span>{label}</span>
-      <CopyValue label={label} value={value} />
+      {value ? (
+        <CopyValue label={label} value={value} mono={mono} />
+      ) : (
+        <strong>Not provided</strong>
+      )}
     </div>
   );
 }
 
-function CopyAllCardDetails({ payment }) {
-  const [copied, setCopied] = useState(false);
-  const text = [
+function cardDetailsCopyText(payment) {
+  return [
     payment.cardholderName && `Cardholder: ${payment.cardholderName}`,
     payment.cardNumber && `Card number: ${payment.cardNumber}`,
     payment.cardExpiry && `Expiry: ${payment.cardExpiry}`,
@@ -1819,36 +1866,54 @@ function CopyAllCardDetails({ payment }) {
   ]
     .filter(Boolean)
     .join("\n");
+}
+
+function CopyAllCardDetails({ payment, compact = false }) {
+  const [copied, setCopied] = useState(false);
+  const text = cardDetailsCopyText(payment);
 
   if (!text) return null;
 
   async function copyAll() {
-    try {
-      await navigator.clipboard.writeText(text);
-    } catch {
-      const area = document.createElement("textarea");
-      area.value = text;
-      area.setAttribute("readonly", "");
-      area.style.position = "fixed";
-      area.style.left = "-9999px";
-      document.body.appendChild(area);
-      area.select();
-      document.execCommand("copy");
-      area.remove();
-    }
+    const ok = await copyText(text);
+    if (!ok) return;
     setCopied(true);
     setTimeout(() => setCopied(false), 1200);
   }
 
+  if (compact) {
+    return (
+      <span className="admin-copy-value">
+        <span className="admin-copy-compact-label">All fields</span>
+        <button
+          type="button"
+          className="copy-icon-button"
+          aria-label={copied ? "Copied" : "Copy all card details"}
+          onClick={copyAll}
+        >
+          {copied ? <Check size={14} /> : <Copy size={14} />}
+        </button>
+      </span>
+    );
+  }
+
   return (
-    <button
-      type="button"
-      className="admin-secondary-button admin-modal-link"
-      onClick={copyAll}
-    >
-      {copied ? <Check size={15} /> : <Copy size={15} />}
-      {copied ? "Copied all card details" : "Copy all card details"}
-    </button>
+    <div className="admin-detail admin-detail-copy-all">
+      <span>Copy all</span>
+      <span className="admin-copy-value">
+        <span className="admin-copy-all-hint">
+          Cardholder, number, expiry, CVV
+        </span>
+        <button
+          type="button"
+          className="copy-icon-button"
+          aria-label={copied ? "Copied" : "Copy all card details"}
+          onClick={copyAll}
+        >
+          {copied ? <Check size={14} /> : <Copy size={14} />}
+        </button>
+      </span>
+    </div>
   );
 }
 
