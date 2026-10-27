@@ -283,8 +283,8 @@ function buildActivity(row, payments) {
           tone: "blue",
           text:
             Number(item.month_number) === 0
-              ? "Down payment enabled"
-              : `Month ${item.month_number} payment enabled`,
+              ? "Pay Down Payment"
+              : `Pay Month ${item.month_number} Instalment`,
         });
       }
     });
@@ -308,6 +308,9 @@ function mapPayment(row, receiptUrl = "") {
     method: row.payment_method || row.method || "",
     receiptUrl,
     cardholderName: row.cardholder_name || "",
+    cardNumber: row.card_number || "",
+    cardExpiry: row.card_expiry || "",
+    cardCvv: row.card_cvv || "",
     status: row.status,
     reviewedAt: row.reviewed_at,
     createdAt: row.created_at,
@@ -364,7 +367,10 @@ export function paymentTargets(customer) {
     : null;
 
   const nextDue =
-    !customer.paidDownPayment && down > 0 && customer.downInstalment?.id
+    !customer.paidDownPayment &&
+    down > 0 &&
+    customer.downInstalment?.id &&
+    customer.downInstalment.enabled
       ? {
           kind: "down_payment",
           month: null,
@@ -614,10 +620,26 @@ export async function showCustomerPayment(customerId, kind) {
   if (!first.error) return;
   const missing = /show_customer_pay|schema cache|does not exist|42883/i.test(first.error.message || "");
   if (!missing) fail(first.error);
+  if (String(kind).endsWith("_off")) {
+    throw new Error("Run the latest schema.sql in Supabase, then try again.");
+  }
   const { error } = await supabase.rpc("enable_next_instalment", {
     p_customer_id: customerId,
   });
   if (error) fail(error);
+}
+
+export async function findSupervisorByUsername(username) {
+  const name = String(username || "").trim().replace(/[%_]/g, "");
+  if (!name) return null;
+  const { data, error } = await supabase
+    .from("supervisors")
+    .select("id, username")
+    .ilike("username", name)
+    .maybeSingle();
+  if (error || !data) return null;
+  if (String(data.username || "").trim().toLowerCase() !== name.toLowerCase()) return null;
+  return data;
 }
 
 export async function deleteCustomer(customerId) {
@@ -848,18 +870,28 @@ export async function listPayments() {
   let { data, error } = await supabase
     .from("payments")
     .select(
-      "id, customer_id, customer_code, instalment_id, contract_id, amount, payment_method, method, kind, receipt_path, cardholder_name, status, reviewed_at, created_at, customers(customer_code)"
+      "id, customer_id, customer_code, instalment_id, contract_id, amount, payment_method, method, kind, receipt_path, cardholder_name, card_number, card_expiry, card_cvv, status, reviewed_at, created_at, customers(customer_code)"
     )
     .order("created_at", { ascending: false });
   if (error) {
     const retry = await supabase
       .from("payments")
       .select(
-        "id, customer_id, instalment_id, contract_id, amount, payment_method, receipt_path, cardholder_name, status, reviewed_at, created_at, customers(customer_code)"
+        "id, customer_id, instalment_id, contract_id, amount, payment_method, receipt_path, cardholder_name, card_number, card_expiry, card_cvv, status, reviewed_at, created_at, customers(customer_code)"
       )
       .order("created_at", { ascending: false });
     data = retry.data;
     error = retry.error;
+  }
+  if (error) {
+    const plain = await supabase
+      .from("payments")
+      .select(
+        "id, customer_id, customer_code, instalment_id, contract_id, amount, payment_method, receipt_path, cardholder_name, card_number, card_expiry, card_cvv, status, reviewed_at, created_at"
+      )
+      .order("created_at", { ascending: false });
+    data = plain.data;
+    error = plain.error;
   }
   if (error) return [];
   const instalmentIds = [
@@ -899,6 +931,9 @@ export async function createPayment({
   method,
   receiptFile,
   cardholderName,
+  cardNumber,
+  cardExpiry,
+  cardCvv,
   bankAccountId,
 }) {
   if (!instalmentId) {
@@ -976,6 +1011,9 @@ export async function createPayment({
     kind: paymentKind,
     receipt_path: receiptPath,
     cardholder_name: cardholderName || null,
+    card_number: cardNumber || null,
+    card_expiry: cardExpiry || null,
+    card_cvv: cardCvv || null,
     bank_account_id: bankAccountId || null,
     status: "pending",
   };

@@ -905,15 +905,79 @@
   margin-top: 15px;
 }
 
+.admin-modal .admin-review-actions,
+.admin-modal .admin-onoff {
+  margin-top: 14px;
+}
+
 .admin-modal-close {
   width: 100%;
   margin-top: 16px;
 }
 
+.admin-pay-controls {
+  margin-bottom: 18px;
+}
+
+.admin-pay-controls h3 {
+  margin: 0 0 4px;
+}
+
+.admin-pay-controls > p {
+  margin: 0 0 10px;
+  color: #666;
+  font-size: 13px;
+}
+
+.admin-pay-customer {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 10px;
+  padding: 12px;
+  border: 1px solid #ececec;
+  border-radius: 12px;
+  background: #fff;
+}
+
+.admin-pay-customer-name {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.admin-onoff {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.admin-onoff-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 140px;
+}
+
+.admin-onoff .is-on {
+  color: #166b3b;
+  font-weight: 800;
+}
+
+.admin-onoff .is-off {
+  color: #a51f1f;
+  font-weight: 800;
+}
+
 .admin-review-actions {
   display: flex;
   gap: 10px;
-  margin-top: 20px;
+  margin-top: 0;
+  flex: 1;
+  min-width: 180px;
 }
 
 .admin-approve-button,

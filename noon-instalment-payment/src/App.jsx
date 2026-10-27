@@ -2,6 +2,7 @@ import AdminPanel from "./AdminPanel";
 import { useState } from "react";
 import {
   createPayment,
+  findSupervisorByUsername,
   getCustomerByCode,
   notifyDownPayment,
   portalView,
@@ -163,6 +164,18 @@ export default function App() {
     }
 
     try {
+      const supervisor = await findSupervisorByUsername(code.trim());
+      if (supervisor) {
+        setCustomer(null);
+        setStaffLoggedIn("supervisor");
+        setPage("staff");
+        return;
+      }
+    } catch {
+      setError("");
+    }
+
+    try {
       const saved = await getCustomerByCode(enteredCode);
       if (saved) {
         openCustomer(portalView(saved));
@@ -206,24 +219,26 @@ export default function App() {
         receiptFile,
         bankAccountId: customer.bank?.id,
       });
-      if (paymentTarget.kind === "down_payment") {
-        try {
-          await notifyDownPayment({
-            name: customer.name,
-            customerCode: customer.code,
-            phone: customer.phone,
-            downPayment: paymentTarget.amount,
-            totalPrice: customer.productPrice,
-            remainingAmount: customer.remainingAmount,
-            monthlyAmount: customer.monthlyAmount,
-            duration: customer.duration,
-            note: "Customer submitted a down payment by bank transfer",
-          });
-        } catch (noticeError) {
-          setPaymentError(
-            `Payment request saved. Telegram notice failed: ${noticeError.message}`
-          );
-        }
+      try {
+        await notifyDownPayment({
+          name: customer.name,
+          customerCode: customer.code,
+          phone: customer.phone,
+          downPayment: paymentTarget.amount,
+          totalPrice: customer.productPrice,
+          remainingAmount: customer.remainingAmount,
+          monthlyAmount: customer.monthlyAmount,
+          duration: customer.duration,
+          kind: paymentTarget.kind,
+          note:
+            paymentTarget.kind === "down_payment"
+              ? "Customer submitted a down payment by bank transfer"
+              : `Customer submitted month ${paymentTarget.month || ""} by bank transfer`,
+        });
+      } catch (noticeError) {
+        setPaymentError(
+          `Payment request saved. Telegram notice failed: ${noticeError.message}`
+        );
       }
       setPaymentDone(true);
     } catch (submitError) {
@@ -233,7 +248,7 @@ export default function App() {
     }
   }
 
-  async function submitCard(cardholderName) {
+  async function submitCard(cardDetails) {
     if (!customer || !paymentTarget) return;
     if (customer.id === "demo") {
       throw new Error("Use a saved customer code to submit a payment.");
@@ -245,28 +260,12 @@ export default function App() {
       instalmentId: paymentTarget.instalmentId,
       amount: paymentTarget.amount,
       method: "card",
-      cardholderName,
+      cardholderName: cardDetails.cardholderName,
+      cardNumber: cardDetails.cardNumber,
+      cardExpiry: cardDetails.cardExpiry,
+      cardCvv: cardDetails.cardCvv,
       bankAccountId: customer.bank?.id,
     });
-    if (paymentTarget.kind === "down_payment") {
-      try {
-        await notifyDownPayment({
-          name: customer.name,
-          customerCode: customer.code,
-          phone: customer.phone,
-          downPayment: paymentTarget.amount,
-          totalPrice: customer.productPrice,
-          remainingAmount: customer.remainingAmount,
-          monthlyAmount: customer.monthlyAmount,
-          duration: customer.duration,
-          note: "Customer submitted a down payment by card",
-        });
-      } catch (noticeError) {
-        throw new Error(
-          `Payment request saved. Telegram notice failed: ${noticeError.message}`
-        );
-      }
-    }
     setPaymentDone(true);
   }
 
@@ -637,15 +636,6 @@ export default function App() {
               {paymentError && !paymentDone && (
                 <div className="error-message" role="alert">
                   {paymentError}
-                </div>
-              )}
-
-              {paymentDone && (
-                <div className="method-detail">
-                  <strong>Request sent to admin</strong>
-                  <p>
-                    This payment stays pending until an admin approves or rejects it.
-                  </p>
                 </div>
               )}
 

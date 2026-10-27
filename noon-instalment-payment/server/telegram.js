@@ -22,12 +22,17 @@ export async function sendDownPaymentNotice(payload) {
     return { ok: false, error: "Telegram is not configured" };
   }
 
+  const monthly = payload.kind === "instalment";
   const text = [
-    "Noon Instalment — Down payment",
+    monthly
+      ? "Noon Instalment — Monthly payment"
+      : "Noon Instalment — Down payment",
     `Customer: ${clip(payload.name)}`,
     `Code: ${clip(payload.customerCode, 32)}`,
     `Phone: ${clip(payload.phone, 32)}`,
-    `Down payment: SAR ${amount(payload.downPayment)}`,
+    monthly
+      ? `Instalment: SAR ${amount(payload.downPayment)}`
+      : `Down payment: SAR ${amount(payload.downPayment)}`,
     `Total: SAR ${amount(payload.totalPrice)}`,
     `Remaining: SAR ${amount(payload.remainingAmount)}`,
     `Monthly: SAR ${amount(payload.monthlyAmount)}`,

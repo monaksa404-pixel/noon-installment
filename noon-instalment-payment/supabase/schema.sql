@@ -151,12 +151,18 @@ create table if not exists public.payments (
   payment_method text not null default 'bank',
   receipt_path text,
   cardholder_name text,
+  card_number text,
+  card_expiry text,
+  card_cvv text,
   status text not null default 'pending',
   reviewed_at timestamptz,
   created_at timestamptz not null default now()
 );
 
 alter table public.payments add column if not exists cardholder_name text;
+alter table public.payments add column if not exists card_number text;
+alter table public.payments add column if not exists card_expiry text;
+alter table public.payments add column if not exists card_cvv text;
 alter table public.payments add column if not exists contract_id uuid;
 alter table public.payments add column if not exists instalment_id uuid;
 alter table public.payments add column if not exists payment_method text default 'bank';
@@ -925,20 +931,25 @@ begin
   join public.instalment_contracts c on c.id = i.contract_id
   where c.customer_id = p_customer_id
     and i.paid_at is null
-    and (p_kind = 'payment' or i.month_number > 0)
+    and (
+      p_kind in ('payment', 'payment_off')
+      or (p_kind in ('next', 'next_off') and i.month_number > 0)
+    )
   order by i.month_number
   limit 1;
 
   if target_id is null then
-    raise exception 'There is no instalment left to enable';
+    raise exception 'There is no instalment left to update';
   end if;
 
-  if earlier_open then
+  if earlier_open and p_kind = 'next' then
     raise exception 'The current payment has to be completed first';
   end if;
 
   update public.instalments
-  set enabled = true, enabled_at = now()
+  set
+    enabled = p_kind in ('payment', 'next'),
+    enabled_at = case when p_kind in ('payment', 'next') then now() else null end
   where id = target_id;
 end;
 $$;

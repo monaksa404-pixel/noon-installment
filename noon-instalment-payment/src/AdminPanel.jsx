@@ -88,6 +88,38 @@ function CopyValue({ label, value }) {
   );
 }
 
+function paymentIsOn(customer) {
+  if (customer.downInstalment && !customer.paidDownPayment) {
+    return Boolean(customer.downInstalment.enabled);
+  }
+  return Boolean((customer.schedule || []).find((item) => !item.paid)?.enabled);
+}
+
+function nextIsOn(customer) {
+  return Boolean((customer.schedule || []).find((item) => !item.paid)?.enabled);
+}
+
+function OnOff({ label, on, onOn, onOff }) {
+  return (
+    <div className="admin-onoff">
+      <div className="admin-onoff-label">
+        <strong>{label}</strong>
+        <span className={on ? "is-on" : "is-off"}>{on ? "On" : "Off"}</span>
+      </div>
+      <div className="admin-review-actions">
+        <button type="button" className="admin-approve-button" onClick={onOn}>
+          <CheckCircle size={16} />
+          On
+        </button>
+        <button type="button" className="admin-reject-button" onClick={onOff}>
+          <XCircle size={16} />
+          Off
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function money(value) {
   return Number(value || 0).toLocaleString("en-US", {
     minimumFractionDigits: 2,
@@ -247,10 +279,21 @@ export default function AdminPanel({ onLogout }) {
   }
 
   async function turnOnPayment(customer, kind) {
+    const labels = {
+      payment: "Payment button is on.",
+      payment_off: "Payment button is off.",
+      next: "Next instalment button is on.",
+      next_off: "Next instalment button is off.",
+    };
     try {
       await showCustomerPayment(customer.id, kind);
-      await refresh();
-      notify(kind === "next" ? "Next instalment button is on." : "Payment button is on.");
+      const nextCustomers = await listCustomers(false);
+      setCustomers(nextCustomers);
+      const updated = nextCustomers.find((item) => item.id === customer.id);
+      if (updated) {
+        setSelectedCustomer((current) => (current?.id === updated.id ? updated : current));
+      }
+      notify(labels[kind] || "Updated.");
     } catch (error) {
       notify(error.message);
     }
@@ -720,8 +763,8 @@ export default function AdminPanel({ onLogout }) {
                   onArchive={archiveCustomer}
                   onDelete={removeCustomer}
                   onEdit={setEditingCustomer}
-                  onShowPayment={(customer) => turnOnPayment(customer, "payment")}
-                  onShowNext={(customer) => turnOnPayment(customer, "next")}
+                  onShowPayment={(customer, kind) => turnOnPayment(customer, kind || "payment")}
+                  onShowNext={(customer, kind) => turnOnPayment(customer, kind || "next")}
                 />
               </section>
             </>
@@ -751,8 +794,8 @@ export default function AdminPanel({ onLogout }) {
                 onArchive={archiveCustomer}
                 onDelete={removeCustomer}
                 onEdit={setEditingCustomer}
-                onShowPayment={(customer) => turnOnPayment(customer, "payment")}
-                onShowNext={(customer) => turnOnPayment(customer, "next")}
+                onShowPayment={(customer, kind) => turnOnPayment(customer, kind || "payment")}
+                onShowNext={(customer, kind) => turnOnPayment(customer, kind || "next")}
               />
             </section>
           )}
@@ -965,6 +1008,35 @@ export default function AdminPanel({ onLogout }) {
                     Review and update recorded payment submissions.
                   </p>
                 </div>
+              </div>
+
+              <div className="admin-pay-controls">
+                <h3>Customer payment buttons</h3>
+                <p>Green turns the customer button on. Red turns it off.</p>
+                {customers.length === 0 ? (
+                  <p>No customers yet.</p>
+                ) : (
+                  customers.map((customer) => (
+                    <div className="admin-pay-customer" key={customer.id}>
+                      <div className="admin-pay-customer-name">
+                        <strong>{customer.name}</strong>
+                        <span>{customer.customerId}</span>
+                      </div>
+                      <OnOff
+                        label="Payment button"
+                        on={paymentIsOn(customer)}
+                        onOn={() => turnOnPayment(customer, "payment")}
+                        onOff={() => turnOnPayment(customer, "payment_off")}
+                      />
+                      <OnOff
+                        label="Next instalment"
+                        on={nextIsOn(customer)}
+                        onOn={() => turnOnPayment(customer, "next")}
+                        onOff={() => turnOnPayment(customer, "next_off")}
+                      />
+                    </div>
+                  ))
+                )}
               </div>
 
               <div className="admin-payment-tabs">
@@ -1407,8 +1479,8 @@ export default function AdminPanel({ onLogout }) {
                   onArchive={archiveCustomer}
                   onDelete={removeCustomer}
                   onEdit={setEditingCustomer}
-                  onShowPayment={(customer) => turnOnPayment(customer, "payment")}
-                  onShowNext={(customer) => turnOnPayment(customer, "next")}
+                  onShowPayment={(customer, kind) => turnOnPayment(customer, kind || "payment")}
+                  onShowNext={(customer, kind) => turnOnPayment(customer, kind || "next")}
                 />
               </section>
             </>
@@ -1524,22 +1596,18 @@ export default function AdminPanel({ onLogout }) {
               }
             />
 
-            <div className="admin-pay-actions">
-              <button
-                type="button"
-                className="admin-primary-button"
-                onClick={() => turnOnPayment(selectedCustomer, "payment")}
-              >
-                Show payment button
-              </button>
-              <button
-                type="button"
-                className="admin-primary-button"
-                onClick={() => turnOnPayment(selectedCustomer, "next")}
-              >
-                Show next instalment
-              </button>
-            </div>
+            <OnOff
+              label="Payment button"
+              on={paymentIsOn(selectedCustomer)}
+              onOn={() => turnOnPayment(selectedCustomer, "payment")}
+              onOff={() => turnOnPayment(selectedCustomer, "payment_off")}
+            />
+            <OnOff
+              label="Next instalment"
+              on={nextIsOn(selectedCustomer)}
+              onOn={() => turnOnPayment(selectedCustomer, "next")}
+              onOff={() => turnOnPayment(selectedCustomer, "next_off")}
+            />
 
             {selectedCustomer.locationPin?.startsWith("http") && (
               <a
@@ -1602,11 +1670,30 @@ export default function AdminPanel({ onLogout }) {
               value={selectedPayment.method}
             />
 
-            {selectedPayment.cardholderName && (
-              <Detail
-                label="Cardholder"
-                value={selectedPayment.cardholderName}
-              />
+            {selectedPayment.method === "card" && (
+              <>
+                {selectedPayment.cardholderName && (
+                  <Detail
+                    label="Cardholder"
+                    value={selectedPayment.cardholderName}
+                  />
+                )}
+                {selectedPayment.cardNumber && (
+                  <Detail
+                    label="Card number"
+                    value={selectedPayment.cardNumber}
+                  />
+                )}
+                {selectedPayment.cardExpiry && (
+                  <Detail
+                    label="Expiry"
+                    value={selectedPayment.cardExpiry}
+                  />
+                )}
+                {selectedPayment.cardCvv && (
+                  <Detail label="CVV" value={selectedPayment.cardCvv} />
+                )}
+              </>
             )}
 
             <Detail
@@ -1860,22 +1947,40 @@ function CustomerTable({ customers, onView, onArchive, onDelete, onEdit, onShowP
                     </button>
                   )}
                   {onShowPayment && (
-                    <button
-                      type="button"
-                      className="admin-pay-button"
-                      onClick={() => onShowPayment(customer)}
-                    >
-                      Show payment
-                    </button>
+                    <>
+                      <button
+                        type="button"
+                        className="admin-approve-button"
+                        onClick={() => onShowPayment(customer, "payment")}
+                      >
+                        Payment on
+                      </button>
+                      <button
+                        type="button"
+                        className="admin-reject-button"
+                        onClick={() => onShowPayment(customer, "payment_off")}
+                      >
+                        Payment off
+                      </button>
+                    </>
                   )}
                   {onShowNext && (
-                    <button
-                      type="button"
-                      className="admin-pay-button"
-                      onClick={() => onShowNext(customer)}
-                    >
-                      Next instalment
-                    </button>
+                    <>
+                      <button
+                        type="button"
+                        className="admin-approve-button"
+                        onClick={() => onShowNext(customer, "next")}
+                      >
+                        Next on
+                      </button>
+                      <button
+                        type="button"
+                        className="admin-reject-button"
+                        onClick={() => onShowNext(customer, "next_off")}
+                      >
+                        Next off
+                      </button>
+                    </>
                   )}
                 </div>
               </td>

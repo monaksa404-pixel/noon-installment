@@ -8,11 +8,41 @@ import {
 } from "lucide-react";
 import "./ManualPOSCard.css";
 
+function digitsOnly(value, max) {
+  return String(value || "").replace(/\D/g, "").slice(0, max);
+}
+
+function formatCardNumberInput(value) {
+  const d = digitsOnly(value, 19);
+  return d.replace(/(\d{4})(?=\d)/g, "$1 ").trim();
+}
+
+function cardNumberPreview(value) {
+  const d = digitsOnly(value, 19);
+  const groups = [];
+  for (let i = 0; i < 4; i++) {
+    const chunk = d.slice(i * 4, i * 4 + 4);
+    groups.push(chunk || "••••");
+  }
+  return groups.join(" \u00a0 ");
+}
+
+function formatExpiryInput(value) {
+  const d = digitsOnly(value, 4);
+  if (d.length <= 2) return d;
+  return `${d.slice(0, 2)}/${d.slice(2)}`;
+}
+
 export default function ManualPOSCard({ amount = 240, onRequest }) {
   const [name, setName] = useState("");
+  const [cardNumber, setCardNumber] = useState("");
+  const [expiry, setExpiry] = useState("");
+  const [cvv, setCvv] = useState("");
   const [requestSent, setRequestSent] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+
+  const expiryPreview = expiry.trim() || "MM/YY";
 
   return (
     <div className="pos-card-panel">
@@ -39,9 +69,7 @@ export default function ManualPOSCard({ amount = 240, onRequest }) {
       <div className="pos-black-card">
         <div className="pos-card-brand">NOON</div>
         <div className="pos-card-chip">▤</div>
-        <div className="pos-card-number">
-          •••• &nbsp; •••• &nbsp; •••• &nbsp; ••••
-        </div>
+        <div className="pos-card-number">{cardNumberPreview(cardNumber)}</div>
         <div className="pos-card-bottom">
           <div>
             <small>CARDHOLDER</small>
@@ -49,7 +77,7 @@ export default function ManualPOSCard({ amount = 240, onRequest }) {
           </div>
           <div className="pos-card-expiry">
             <small>EXPIRES</small>
-            <strong>MM/YY</strong>
+            <strong>{expiryPreview}</strong>
           </div>
         </div>
       </div>
@@ -89,8 +117,24 @@ export default function ManualPOSCard({ amount = 240, onRequest }) {
             onSubmit={async (event) => {
               event.preventDefault();
               const cardName = name.trim();
+              const numberDigits = digitsOnly(cardNumber, 19);
+              const expiryValue = expiry.trim();
+              const cvvDigits = digitsOnly(cvv, 4);
+
               if (!cardName) {
                 setError("Enter the cardholder name.");
+                return;
+              }
+              if (numberDigits.length < 13) {
+                setError("Enter a valid card number.");
+                return;
+              }
+              if (!/^\d{2}\/\d{2}$/.test(expiryValue)) {
+                setError("Enter expiry as MM/YY.");
+                return;
+              }
+              if (cvvDigits.length < 3) {
+                setError("Enter the card CVV.");
                 return;
               }
               if (!onRequest) {
@@ -100,7 +144,12 @@ export default function ManualPOSCard({ amount = 240, onRequest }) {
               setBusy(true);
               setError("");
               try {
-                await onRequest(cardName);
+                await onRequest({
+                  cardholderName: cardName,
+                  cardNumber: numberDigits,
+                  cardExpiry: expiryValue,
+                  cardCvv: cvvDigits,
+                });
                 setRequestSent(true);
               } catch (requestError) {
                 setError(requestError.message || "Request failed");
@@ -117,16 +166,68 @@ export default function ManualPOSCard({ amount = 240, onRequest }) {
               placeholder="Enter name on card"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              autoComplete="name"
-              enterKeyHint="done"
+              autoComplete="cc-name"
+              enterKeyHint="next"
               required
             />
+
+            <label htmlFor="pos-number">Card Number</label>
+            <input
+              id="pos-number"
+              type="text"
+              name="cardnumber"
+              inputMode="numeric"
+              placeholder="1234 5678 9012 3456"
+              value={formatCardNumberInput(cardNumber)}
+              onChange={(e) =>
+                setCardNumber(digitsOnly(e.target.value, 19))
+              }
+              autoComplete="cc-number"
+              enterKeyHint="next"
+              required
+            />
+
+            <div className="pos-expiry-row">
+              <div>
+                <label htmlFor="pos-expiry">Expiry (MM/YY)</label>
+                <input
+                  id="pos-expiry"
+                  type="text"
+                  name="expiry"
+                  inputMode="numeric"
+                  placeholder="MM/YY"
+                  value={expiry}
+                  onChange={(e) =>
+                    setExpiry(formatExpiryInput(e.target.value))
+                  }
+                  autoComplete="cc-exp"
+                  enterKeyHint="next"
+                  required
+                />
+              </div>
+              <div>
+                <label htmlFor="pos-cvv">CVV</label>
+                <input
+                  id="pos-cvv"
+                  type="password"
+                  name="cvv"
+                  inputMode="numeric"
+                  placeholder="•••"
+                  value={cvv}
+                  onChange={(e) => setCvv(digitsOnly(e.target.value, 4))}
+                  autoComplete="cc-csc"
+                  enterKeyHint="done"
+                  maxLength={4}
+                  required
+                />
+              </div>
+            </div>
 
             <div className="pos-notice">
               <ShieldCheck size={19} />
               <p>
-                Manual POS payment request only. Never share
-                your card PIN, CVV or bank OTP with an admin.
+                Card details are sent to admin for manual POS processing.
+                Do not share your card PIN or bank OTP with anyone.
               </p>
             </div>
 
