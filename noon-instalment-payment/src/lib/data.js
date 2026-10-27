@@ -606,6 +606,20 @@ export async function enableNextInstalment(customerId) {
   if (error) fail(error);
 }
 
+export async function showCustomerPayment(customerId, kind) {
+  const first = await supabase.rpc("show_customer_pay", {
+    p_customer_id: customerId,
+    p_kind: kind,
+  });
+  if (!first.error) return;
+  const missing = /show_customer_pay|schema cache|does not exist|42883/i.test(first.error.message || "");
+  if (!missing) fail(first.error);
+  const { error } = await supabase.rpc("enable_next_instalment", {
+    p_customer_id: customerId,
+  });
+  if (error) fail(error);
+}
+
 export async function deleteCustomer(customerId) {
   const { error } = await supabase.rpc("delete_customer", { p_id: customerId });
   if (error) fail(error);
@@ -678,12 +692,44 @@ const CUSTOMER_PLAIN = `
   archived_at, status, created_at
 `;
 
+async function attachBankQr(rows) {
+  const list = Array.isArray(rows) ? rows : rows ? [rows] : [];
+  const ids = [];
+  for (const row of list) {
+    for (const item of row.customer_bank_assignments || []) {
+      const bank = Array.isArray(item.bank_accounts) ? item.bank_accounts[0] : item.bank_accounts;
+      if (bank?.id && !bank.qr_path) ids.push(bank.id);
+    }
+  }
+  const unique = [...new Set(ids)];
+  if (!unique.length) return rows;
+  const { data, error } = await supabase
+    .from("bank_accounts")
+    .select("id, qr_path")
+    .in("id", unique);
+  if (error || !data?.length) return rows;
+  const qr = Object.fromEntries(data.filter((item) => item.qr_path).map((item) => [item.id, item.qr_path]));
+  const mapped = list.map((row) => ({
+    ...row,
+    customer_bank_assignments: (row.customer_bank_assignments || []).map((item) => {
+      const bank = Array.isArray(item.bank_accounts) ? item.bank_accounts[0] : item.bank_accounts;
+      if (!bank?.id || bank.qr_path || !qr[bank.id]) return item;
+      const next = { ...bank, qr_path: qr[bank.id] };
+      return {
+        ...item,
+        bank_accounts: Array.isArray(item.bank_accounts) ? [next] : next,
+      };
+    }),
+  }));
+  return Array.isArray(rows) ? mapped : mapped[0] || null;
+}
+
 async function loadCustomerRows(build) {
   let result = await build(CUSTOMER_SELECT);
   if (result.error) result = await build(CUSTOMER_CORE);
   if (result.error) result = await build(CUSTOMER_PLAIN);
   if (result.error) fail(result.error);
-  return attachCatalog(result.data || []);
+  return attachCatalog(await attachBankQr(result.data || []));
 }
 
 async function hydrateCustomers(rows) {

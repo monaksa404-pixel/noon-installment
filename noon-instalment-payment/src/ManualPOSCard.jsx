@@ -31,17 +31,9 @@ export default function ManualPOSCard({ amount = 240, onRequest }) {
       <div className="pos-accepted-label">Accepted Cards</div>
 
       <div className="pos-card-logos">
-        <span className="pos-visa">VISA</span>
-        <span className="pos-mastercard">
-          <i className="pos-circle-red" />
-          <i className="pos-circle-orange" />
-          <b>mastercard</b>
-        </span>
-        <span className="pos-mada">mada</span>
-      </div>
-
-      <div className="pos-preview-caption">
-        Card details stay at the POS. This sends an approval request.
+        <img src="/images/cards/visa.jpeg" alt="Visa" />
+        <img src="/images/cards/mastercard.jpeg" alt="Mastercard" />
+        <img src="/images/cards/mada.jpeg" alt="mada" />
       </div>
 
       <div className="pos-black-card">
@@ -92,45 +84,43 @@ export default function ManualPOSCard({ amount = 240, onRequest }) {
             </strong>
           </div>
 
-          <div className="pos-form">
+          <form
+            className="pos-form"
+            onSubmit={async (event) => {
+              event.preventDefault();
+              const cardName = name.trim();
+              if (!cardName) {
+                setError("Enter the cardholder name.");
+                return;
+              }
+              if (!onRequest) {
+                setRequestSent(true);
+                return;
+              }
+              setBusy(true);
+              setError("");
+              try {
+                await onRequest(cardName);
+                setRequestSent(true);
+              } catch (requestError) {
+                setError(requestError.message || "Request failed");
+              } finally {
+                setBusy(false);
+              }
+            }}
+          >
             <label htmlFor="pos-name">Cardholder Name</label>
             <input
               id="pos-name"
               type="text"
+              name="cardholder"
               placeholder="Enter name on card"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              autoComplete="off"
+              autoComplete="name"
+              enterKeyHint="done"
+              required
             />
-
-            <label>Card Number</label>
-            <input
-              type="text"
-              value="Enter card details at POS"
-              disabled
-              readOnly
-            />
-
-            <div className="pos-expiry-row">
-              <div>
-                <label>Expiry Date</label>
-                <input
-                  type="text"
-                  value="Handled at POS"
-                  disabled
-                  readOnly
-                />
-              </div>
-              <div>
-                <label>CVV</label>
-                <input
-                  type="text"
-                  value="Not collected"
-                  disabled
-                  readOnly
-                />
-              </div>
-            </div>
 
             <div className="pos-notice">
               <ShieldCheck size={19} />
@@ -143,35 +133,14 @@ export default function ManualPOSCard({ amount = 240, onRequest }) {
             {error && <p className="pos-demo-note">{error}</p>}
 
             <button
-              type="button"
+              type="submit"
               className="pos-submit-button"
-              onClick={async () => {
-                if (!onRequest) {
-                  setRequestSent(true);
-                  return;
-                }
-                setBusy(true);
-                setError("");
-                try {
-                  await onRequest(name.trim());
-                  setRequestSent(true);
-                } catch (requestError) {
-                  setError(requestError.message || "Request failed");
-                } finally {
-                  setBusy(false);
-                }
-              }}
-              disabled={!name.trim() || busy}
+              disabled={busy}
             >
               <Send size={18} />
               {busy ? "Submitting..." : "Submit POS Payment Request"}
             </button>
-
-            <p className="pos-demo-note">
-              Card number, expiry, and CVV are not collected here.
-              The request is approved by admin, the same manual POS flow.
-            </p>
-          </div>
+          </form>
         </>
       )}
     </div>

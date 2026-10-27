@@ -726,8 +726,18 @@ button {
 }
 
 .payment-heading {
+  position: relative;
+  z-index: 2;
   margin: 25px 0 12px;
   font-size: 15px;
+}
+
+.payment-method-block {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  position: relative;
+  clear: both;
 }
 
 .payment-option {
@@ -747,10 +757,20 @@ button {
   transition: border-color .2s, background .2s;
 }
 
+.payment-page.panel {
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 16px 12px 28px;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  background: transparent;
+}
+
 .payment-option:hover,
 .payment-option.selected {
-  border-color: var(--green);
-  background: #F6FBF7;
+  border-color: #171717;
+  background: #fff8cc;
 }
 
 .payment-icon {
@@ -796,25 +816,60 @@ button {
 
 .bank-qr {
   display: block;
-  width: 160px;
-  height: 160px;
+  width: 168px;
+  max-width: 100%;
+  height: auto;
+  aspect-ratio: 1;
   object-fit: contain;
-  margin-top: 8px;
+  margin-top: 10px;
+  padding: 8px;
+  border: 1px solid #e4e4e4;
+  border-radius: 10px;
+  background: #fff;
 }
 
 .method-detail {
-  margin-top: -1px;
-  padding: 17px;
-  border: 1px solid #E1E1E1;
-  border-top: 0;
-  border-radius: 0 0 10px 10px;
-  background: #FAFAFA;
-  font-size: 12px;
-  line-height: 1.7;
+  position: static;
+  width: 100%;
+  box-sizing: border-box;
+  margin: 0;
+  padding: 16px;
+  border: 1px solid #e4e4e4;
+  border-radius: 12px;
+  background: #fff;
+  font-size: 13px;
+  line-height: 1.6;
+  overflow: visible;
 }
 
 .method-detail > strong {
   font-size: 13px;
+}
+
+.copy-line {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 6px 0;
+}
+
+.copy-line span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.copy-icon-button {
+  width: 30px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  border: 1px solid #e4e4e4;
+  border-radius: 8px;
+  background: #fff;
+  color: #171717;
+  cursor: pointer;
 }
 
 .method-detail p {
@@ -822,15 +877,18 @@ button {
 }
 
 .upload-box {
+  position: relative;
   min-height: 55px;
   display: flex;
   align-items: center;
   gap: 10px;
+  margin-top: 8px;
   padding: 12px;
   border: 1px dashed #A9A9A9;
   border-radius: 8px;
   background: white;
   cursor: pointer;
+  overflow: hidden;
 }
 
 .upload-box svg {
@@ -839,13 +897,17 @@ button {
 }
 
 .upload-box span {
+  min-width: 0;
   overflow-wrap: anywhere;
 }
 
 .upload-box input {
+  position: absolute;
+  inset: 0;
   width: 100%;
-  min-width: 0;
-  font-size: 10px;
+  height: 100%;
+  opacity: 0;
+  cursor: pointer;
 }
 
 .small-warning {

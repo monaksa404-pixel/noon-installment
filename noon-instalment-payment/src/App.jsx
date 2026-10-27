@@ -15,6 +15,8 @@ import {
   LockKeyhole,
   BadgeCheck,
   Upload,
+  Copy,
+  Check,
   ChevronRight,
   WalletCards,
   ArrowLeft,
@@ -25,6 +27,46 @@ import CustomerDetails from "./CustomerDetails";
 import NoonLogo from "./NoonLogo";
 import SupervisorPanel from "./SupervisorPanel";
 import "./App.css";
+
+function CopyLine({ label, value }) {
+  const [copied, setCopied] = useState(false);
+
+  async function copy() {
+    const text = String(value || "");
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch {
+      const area = document.createElement("textarea");
+      area.value = text;
+      area.setAttribute("readonly", "");
+      area.style.position = "fixed";
+      area.style.left = "-9999px";
+      document.body.appendChild(area);
+      area.select();
+      const ok = document.execCommand("copy");
+      area.remove();
+      if (!ok) return;
+    }
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1200);
+  }
+
+  return (
+    <p className="copy-line">
+      <span>
+        {label}: {value}
+      </span>
+      <button
+        type="button"
+        className="copy-icon-button"
+        aria-label={copied ? "Copied" : `Copy ${label}`}
+        onClick={copy}
+      >
+        {copied ? <Check size={14} /> : <Copy size={14} />}
+      </button>
+    </p>
+  );
+}
 
 export default function App() {
   const [code, setCode] = useState("");
@@ -289,7 +331,7 @@ export default function App() {
       )}
 
       {/* HERO */}
-{page !== "details" && page !== "staff" && (
+{page === "code" && (
         <section className="hero">
           <div className="hero-content">
             <div className="eyebrow">
@@ -355,7 +397,7 @@ export default function App() {
 )}
       {/* CUSTOMER CONTENT */}
       {["code", "details", "payment"].includes(page) && (
-        <main className={page === "details" ? "content-wrap content-wrap-details" : "content-wrap"}>
+        <main className={page === "code" ? "content-wrap" : "content-wrap content-wrap-details"}>
           {/* STEP 1: CUSTOMER CODE */}
           {page === "code" && (
             <section className="panel code-panel">
@@ -486,15 +528,16 @@ export default function App() {
 
               {/* BANK TRANSFER */}
               {(customer.paymentMethods || []).includes("bank") && (
-              <>
+              <div className="payment-method-block">
               <button
                 type="button"
                 className={`payment-option ${
                   method === "bank" ? "selected" : ""
                 }`}
-                onClick={() =>
-                  setMethod(method === "bank" ? "" : "bank")
-                }
+                onClick={() => {
+                  setPaymentError("");
+                  setMethod(method === "bank" ? "" : "bank");
+                }}
               >
                 <span className="payment-icon bank">
                   <Landmark size={22} />
@@ -514,8 +557,8 @@ export default function App() {
                   {customer.bank ? (
                     <>
                       <p>Bank: {customer.bank.bankName}</p>
-                      <p>Account name: {customer.bank.accountName}</p>
-                      <p>IBAN: {customer.bank.iban}</p>
+                      <CopyLine label="Account name" value={customer.bank.accountName} />
+                      <CopyLine label="IBAN" value={customer.bank.iban} />
                       {customer.bank.instructions && (
                         <p>{customer.bank.instructions}</p>
                       )}
@@ -557,19 +600,20 @@ export default function App() {
                   </button>
                 </div>
               )}
-              </>
+              </div>
               )}
 
               {(customer.paymentMethods || []).includes("card") && (
-              <>
+              <div className="payment-method-block">
               <button
                 type="button"
                 className={`payment-option ${
                   method === "card" ? "selected" : ""
                 }`}
-                onClick={() =>
-                  setMethod(method === "card" ? "" : "card")
-                }
+                onClick={() => {
+                  setPaymentError("");
+                  setMethod(method === "card" ? "" : "card");
+                }}
               >
                 <span className="payment-icon card">
                   <CreditCard size={22} />
@@ -587,10 +631,10 @@ export default function App() {
                   onRequest={submitCard}
                 />
               )}
-              </>
+              </div>
               )}
 
-              {paymentError && (
+              {paymentError && !paymentDone && (
                 <div className="error-message" role="alert">
                   {paymentError}
                 </div>

@@ -1,8 +1,8 @@
 
 .pos-card-panel {
   width: 100%;
-  margin-top: 18px;
-  padding: 20px;
+  margin-top: 12px;
+  padding: 16px;
   box-sizing: border-box;
   border: 1px solid #e4e4e4;
   border-radius: 16px;
@@ -53,16 +53,15 @@
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: 10px;
+  gap: 8px;
 }
 
-.pos-card-logos > span {
-  height: 26px;
-  padding: 0 8px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 4px;
+.pos-card-logos img {
+  height: 34px;
+  width: auto;
+  max-width: 108px;
+  object-fit: contain;
+  padding: 4px 8px;
   border: 1px solid #e2e2e2;
   border-radius: 8px;
   background: #fff;
@@ -186,6 +185,8 @@
 }
 
 .pos-form {
+  position: relative;
+  z-index: 2;
   display: flex;
   flex-direction: column;
   gap: 9px;

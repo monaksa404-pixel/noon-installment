@@ -2,6 +2,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import NoonLogo from "./NoonLogo";
 import {
+  UserRound,
   Phone,
   MapPin,
   ShieldCheck,
@@ -212,23 +213,34 @@ export default function CustomerDetails({
               ))}
             </div>
           )}
-          <h3>{customer.name}</h3>
-          <div className="cd-phone">
-            <Phone size={12} />
-            <span>{customer.phone || "Number not provided"}</span>
-          </div>
-          <div className="cd-verified-row">
-            <ShieldCheck size={13} />
-            <span
-              className={
-                customer.verified
-                  ? "cd-status cd-status-paid"
-                  : "cd-status cd-status-pending"
-              }
-            >
-              {customer.verified ? "Verified" : "Pending"}
-            </span>
-          </div>
+          <section className="cd-card cd-profile-card">
+            <div className="cd-section-heading">
+              <div className="cd-icon-box">
+                <UserRound size={18} />
+              </div>
+              <div>
+                <h2>Customer Details</h2>
+                <p>Registered information</p>
+              </div>
+            </div>
+            <h3>{customer.name}</h3>
+            <div className="cd-phone">
+              <Phone size={12} />
+              <span>{customer.phone || "Number not provided"}</span>
+            </div>
+            <div className="cd-verified-row">
+              <ShieldCheck size={13} />
+              <span
+                className={
+                  customer.verified
+                    ? "cd-status cd-status-paid"
+                    : "cd-status cd-status-pending"
+                }
+              >
+                {customer.verified ? "Verified" : "Pending"}
+              </span>
+            </div>
+          </section>
         </div>
 
         <section className="cd-profile-grid">

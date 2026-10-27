@@ -701,6 +701,14 @@
   padding: 2px 2px 12px;
 }
 
+.cd-top .cd-profile-card {
+  margin-top: 4px;
+}
+
+.cd-top .cd-profile-card h3 {
+  margin: 12px 0 4px;
+}
+
 .cd-top h3 {
   margin: 0 0 4px;
   font-size: 22px;

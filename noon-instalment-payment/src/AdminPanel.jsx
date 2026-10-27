@@ -6,7 +6,7 @@ import {
   deactivateBank,
   deactivateProduct,
   deleteCustomer,
-  enableNextInstalment,
+  showCustomerPayment,
   deleteSupervisor as removeSupervisorRecord,
   listBanks,
   listCustomers,
@@ -25,6 +25,8 @@ import {
   BadgeCheck,
   Bell,
   CheckCircle,
+  Copy,
+  Check,
   CreditCard,
   Landmark,
   LayoutDashboard,
@@ -47,6 +49,44 @@ import {
   LogOut,
   ChartNoAxesCombined,
 } from "lucide-react";
+
+function CopyValue({ label, value }) {
+  const [copied, setCopied] = useState(false);
+
+  async function copy() {
+    const text = String(value || "");
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch {
+      const area = document.createElement("textarea");
+      area.value = text;
+      area.setAttribute("readonly", "");
+      area.style.position = "fixed";
+      area.style.left = "-9999px";
+      document.body.appendChild(area);
+      area.select();
+      const ok = document.execCommand("copy");
+      area.remove();
+      if (!ok) return;
+    }
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1200);
+  }
+
+  return (
+    <span className="admin-copy-value">
+      <span>{value}</span>
+      <button
+        type="button"
+        className="copy-icon-button"
+        aria-label={copied ? "Copied" : `Copy ${label}`}
+        onClick={copy}
+      >
+        {copied ? <Check size={14} /> : <Copy size={14} />}
+      </button>
+    </span>
+  );
+}
 
 function money(value) {
   return Number(value || 0).toLocaleString("en-US", {
@@ -201,6 +241,16 @@ export default function AdminPanel({ onLogout }) {
       setSelectedCustomer(null);
       await refresh();
       notify("Customer record archived.");
+    } catch (error) {
+      notify(error.message);
+    }
+  }
+
+  async function turnOnPayment(customer, kind) {
+    try {
+      await showCustomerPayment(customer.id, kind);
+      await refresh();
+      notify(kind === "next" ? "Next instalment button is on." : "Payment button is on.");
     } catch (error) {
       notify(error.message);
     }
@@ -670,6 +720,8 @@ export default function AdminPanel({ onLogout }) {
                   onArchive={archiveCustomer}
                   onDelete={removeCustomer}
                   onEdit={setEditingCustomer}
+                  onShowPayment={(customer) => turnOnPayment(customer, "payment")}
+                  onShowNext={(customer) => turnOnPayment(customer, "next")}
                 />
               </section>
             </>
@@ -699,6 +751,8 @@ export default function AdminPanel({ onLogout }) {
                 onArchive={archiveCustomer}
                 onDelete={removeCustomer}
                 onEdit={setEditingCustomer}
+                onShowPayment={(customer) => turnOnPayment(customer, "payment")}
+                onShowNext={(customer) => turnOnPayment(customer, "next")}
               />
             </section>
           )}
@@ -1089,8 +1143,12 @@ export default function AdminPanel({ onLogout }) {
                         {banks.map((bank) => (
                           <tr key={bank.id}>
                             <td>{bank.bankName}</td>
-                            <td>{bank.accountName}</td>
-                            <td>{bank.iban}</td>
+                            <td>
+                              <CopyValue label="account number" value={bank.accountName} />
+                            </td>
+                            <td>
+                              <CopyValue label="IBAN" value={bank.iban} />
+                            </td>
                             <td>
                               <button
                                 type="button"
@@ -1349,6 +1407,8 @@ export default function AdminPanel({ onLogout }) {
                   onArchive={archiveCustomer}
                   onDelete={removeCustomer}
                   onEdit={setEditingCustomer}
+                  onShowPayment={(customer) => turnOnPayment(customer, "payment")}
+                  onShowNext={(customer) => turnOnPayment(customer, "next")}
                 />
               </section>
             </>
@@ -1464,22 +1524,22 @@ export default function AdminPanel({ onLogout }) {
               }
             />
 
-            <button
-              type="button"
-              className="admin-primary-button admin-modal-link"
-              onClick={async () => {
-                try {
-                  await enableNextInstalment(selectedCustomer.id);
-                  await refresh();
-                  setSelectedCustomer(null);
-                  notify("Next instalment enabled.");
-                } catch (error) {
-                  notify(error.message);
-                }
-              }}
-            >
-              Enable next instalment
-            </button>
+            <div className="admin-pay-actions">
+              <button
+                type="button"
+                className="admin-primary-button"
+                onClick={() => turnOnPayment(selectedCustomer, "payment")}
+              >
+                Show payment button
+              </button>
+              <button
+                type="button"
+                className="admin-primary-button"
+                onClick={() => turnOnPayment(selectedCustomer, "next")}
+              >
+                Show next instalment
+              </button>
+            </div>
 
             {selectedCustomer.locationPin?.startsWith("http") && (
               <a
@@ -1695,7 +1755,7 @@ function CopyCode({ value }) {
   );
 }
 
-function CustomerTable({ customers, onView, onArchive, onDelete, onEdit }) {
+function CustomerTable({ customers, onView, onArchive, onDelete, onEdit, onShowPayment, onShowNext }) {
   const [copiedId, setCopiedId] = useState("");
   const holdTimer = useRef(null);
 
@@ -1797,6 +1857,24 @@ function CustomerTable({ customers, onView, onArchive, onDelete, onEdit }) {
                       onClick={() => onDelete(customer)}
                     >
                       <Trash2 size={16} />
+                    </button>
+                  )}
+                  {onShowPayment && (
+                    <button
+                      type="button"
+                      className="admin-pay-button"
+                      onClick={() => onShowPayment(customer)}
+                    >
+                      Show payment
+                    </button>
+                  )}
+                  {onShowNext && (
+                    <button
+                      type="button"
+                      className="admin-pay-button"
+                      onClick={() => onShowNext(customer)}
+                    >
+                      Next instalment
                     </button>
                   )}
                 </div>

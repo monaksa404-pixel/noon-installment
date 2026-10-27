@@ -902,7 +902,49 @@ begin
 end;
 $$;
 
+create or replace function public.show_customer_pay(p_customer_id uuid, p_kind text)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  target_id uuid;
+  earlier_open boolean;
+begin
+  select i.id,
+         exists (
+           select 1
+           from public.instalments earlier
+           where earlier.contract_id = i.contract_id
+             and earlier.month_number < i.month_number
+             and earlier.paid_at is null
+         )
+  into target_id, earlier_open
+  from public.instalments i
+  join public.instalment_contracts c on c.id = i.contract_id
+  where c.customer_id = p_customer_id
+    and i.paid_at is null
+    and (p_kind = 'payment' or i.month_number > 0)
+  order by i.month_number
+  limit 1;
+
+  if target_id is null then
+    raise exception 'There is no instalment left to enable';
+  end if;
+
+  if earlier_open then
+    raise exception 'The current payment has to be completed first';
+  end if;
+
+  update public.instalments
+  set enabled = true, enabled_at = now()
+  where id = target_id;
+end;
+$$;
+
 grant execute on function public.enable_next_instalment(uuid) to anon, authenticated;
+grant execute on function public.show_customer_pay(uuid, text) to anon, authenticated;
 grant execute on function public.delete_customer(uuid) to anon, authenticated;
 grant execute on function public.update_customer_details(uuid, jsonb) to anon, authenticated;
 
