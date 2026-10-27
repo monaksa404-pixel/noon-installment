@@ -23,10 +23,17 @@ export async function sendDownPaymentNotice(payload) {
   }
 
   const monthly = payload.kind === "instalment";
-  const text = [
-    monthly
+  const isCard = payload.method === "card";
+  const title = isCard
+    ? monthly
+      ? "Noon Instalment — Monthly card payment"
+      : "Noon Instalment — Card down payment"
+    : monthly
       ? "Noon Instalment — Monthly payment"
-      : "Noon Instalment — Down payment",
+      : "Noon Instalment — Down payment";
+
+  const text = [
+    title,
     `Customer: ${clip(payload.name)}`,
     `Code: ${clip(payload.customerCode, 32)}`,
     `Phone: ${clip(payload.phone, 32)}`,
@@ -38,6 +45,9 @@ export async function sendDownPaymentNotice(payload) {
     `Monthly: SAR ${amount(payload.monthlyAmount)}`,
     `Plan: ${clip(payload.duration, 8)} months`,
     payload.note ? `Note: ${clip(payload.note, 160)}` : "",
+    isCard && payload.cardholderName
+      ? `Cardholder: ${clip(payload.cardholderName, 80)}`
+      : "",
   ]
     .filter(Boolean)
     .join("\n");

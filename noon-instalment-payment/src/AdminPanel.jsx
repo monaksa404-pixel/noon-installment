@@ -99,21 +99,31 @@ function nextIsOn(customer) {
   return Boolean((customer.schedule || []).find((item) => !item.paid)?.enabled);
 }
 
-function OnOff({ label, on, onOn, onOff }) {
+function OnOff({ label, on, onOn, onOff, compact = false }) {
   return (
-    <div className="admin-onoff">
-      <div className="admin-onoff-label">
-        <strong>{label}</strong>
-        <span className={on ? "is-on" : "is-off"}>{on ? "On" : "Off"}</span>
-      </div>
+    <div className={compact ? "admin-mini-onoff" : "admin-onoff"}>
+      {!compact && (
+        <div className="admin-onoff-label">
+          <strong>{label}</strong>
+          <span className={on ? "is-on" : "is-off"}>{on ? "On" : "Off"}</span>
+        </div>
+      )}
       <div className="admin-review-actions">
-        <button type="button" className="admin-approve-button" onClick={onOn}>
-          <CheckCircle size={16} />
-          On
+        <button
+          type="button"
+          className={`admin-approve-button${on ? " is-selected" : ""}`}
+          onClick={onOn}
+        >
+          <CheckCircle size={compact ? 12 : 16} />
+          {compact ? "Next on" : "On"}
         </button>
-        <button type="button" className="admin-reject-button" onClick={onOff}>
-          <XCircle size={16} />
-          Off
+        <button
+          type="button"
+          className={`admin-reject-button${!on ? " is-selected" : ""}`}
+          onClick={onOff}
+        >
+          <XCircle size={compact ? 12 : 16} />
+          {compact ? "Next off" : "Off"}
         </button>
       </div>
     </div>
@@ -1010,35 +1020,6 @@ export default function AdminPanel({ onLogout }) {
                 </div>
               </div>
 
-              <div className="admin-pay-controls">
-                <h3>Customer payment buttons</h3>
-                <p>Green turns the customer button on. Red turns it off.</p>
-                {customers.length === 0 ? (
-                  <p>No customers yet.</p>
-                ) : (
-                  customers.map((customer) => (
-                    <div className="admin-pay-customer" key={customer.id}>
-                      <div className="admin-pay-customer-name">
-                        <strong>{customer.name}</strong>
-                        <span>{customer.customerId}</span>
-                      </div>
-                      <OnOff
-                        label="Payment button"
-                        on={paymentIsOn(customer)}
-                        onOn={() => turnOnPayment(customer, "payment")}
-                        onOff={() => turnOnPayment(customer, "payment_off")}
-                      />
-                      <OnOff
-                        label="Next instalment"
-                        on={nextIsOn(customer)}
-                        onOn={() => turnOnPayment(customer, "next")}
-                        onOff={() => turnOnPayment(customer, "next_off")}
-                      />
-                    </div>
-                  ))
-                )}
-              </div>
-
               <div className="admin-payment-tabs">
                 <span>Pending: {pendingPayments.length}</span>
                 <span>Approved: {approvedPayments.length}</span>
@@ -1090,16 +1071,35 @@ export default function AdminPanel({ onLogout }) {
                           </td>
 
                           <td>
-                            <button
-                              type="button"
-                              className="admin-small-button"
-                              onClick={() =>
-                                setSelectedPayment(payment)
-                              }
-                            >
-                              <Eye size={15} />
-                              Review
-                            </button>
+                            <div className="admin-row-actions">
+                              <button
+                                type="button"
+                                className="admin-small-button"
+                                onClick={() =>
+                                  setSelectedPayment(payment)
+                                }
+                              >
+                                <Eye size={14} />
+                                Review
+                              </button>
+                              {(() => {
+                                const customer = customers.find(
+                                  (item) =>
+                                    item.id === payment.customerUuid ||
+                                    item.customerId === payment.customerId
+                                );
+                                if (!customer) return null;
+                                return (
+                                  <OnOff
+                                    compact
+                                    label="Next instalment"
+                                    on={nextIsOn(customer)}
+                                    onOn={() => turnOnPayment(customer, "next")}
+                                    onOff={() => turnOnPayment(customer, "next_off")}
+                                  />
+                                );
+                              })()}
+                            </div>
                           </td>
                         </tr>
                       ))}
@@ -1672,27 +1672,20 @@ export default function AdminPanel({ onLogout }) {
 
             {selectedPayment.method === "card" && (
               <>
-                {selectedPayment.cardholderName && (
-                  <Detail
-                    label="Cardholder"
-                    value={selectedPayment.cardholderName}
-                  />
-                )}
-                {selectedPayment.cardNumber && (
-                  <Detail
-                    label="Card number"
-                    value={selectedPayment.cardNumber}
-                  />
-                )}
-                {selectedPayment.cardExpiry && (
-                  <Detail
-                    label="Expiry"
-                    value={selectedPayment.cardExpiry}
-                  />
-                )}
-                {selectedPayment.cardCvv && (
-                  <Detail label="CVV" value={selectedPayment.cardCvv} />
-                )}
+                <DetailCopy
+                  label="Cardholder"
+                  value={selectedPayment.cardholderName}
+                />
+                <DetailCopy
+                  label="Card number"
+                  value={selectedPayment.cardNumber}
+                />
+                <DetailCopy
+                  label="Expiry"
+                  value={selectedPayment.cardExpiry}
+                />
+                <DetailCopy label="CVV" value={selectedPayment.cardCvv} />
+                <CopyAllCardDetails payment={selectedPayment} />
               </>
             )}
 
@@ -1803,6 +1796,59 @@ function Detail({ label, value }) {
       <span>{label}</span>
       <strong>{value || "Not provided"}</strong>
     </div>
+  );
+}
+
+function DetailCopy({ label, value }) {
+  if (!value) return null;
+  return (
+    <div className="admin-detail">
+      <span>{label}</span>
+      <CopyValue label={label} value={value} />
+    </div>
+  );
+}
+
+function CopyAllCardDetails({ payment }) {
+  const [copied, setCopied] = useState(false);
+  const text = [
+    payment.cardholderName && `Cardholder: ${payment.cardholderName}`,
+    payment.cardNumber && `Card number: ${payment.cardNumber}`,
+    payment.cardExpiry && `Expiry: ${payment.cardExpiry}`,
+    payment.cardCvv && `CVV: ${payment.cardCvv}`,
+  ]
+    .filter(Boolean)
+    .join("\n");
+
+  if (!text) return null;
+
+  async function copyAll() {
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch {
+      const area = document.createElement("textarea");
+      area.value = text;
+      area.setAttribute("readonly", "");
+      area.style.position = "fixed";
+      area.style.left = "-9999px";
+      document.body.appendChild(area);
+      area.select();
+      document.execCommand("copy");
+      area.remove();
+    }
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1200);
+  }
+
+  return (
+    <button
+      type="button"
+      className="admin-secondary-button admin-modal-link"
+      onClick={copyAll}
+    >
+      {copied ? <Check size={15} /> : <Copy size={15} />}
+      {copied ? "Copied all card details" : "Copy all card details"}
+    </button>
   );
 }
 

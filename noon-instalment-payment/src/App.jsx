@@ -266,6 +266,29 @@ export default function App() {
       cardCvv: cardDetails.cardCvv,
       bankAccountId: customer.bank?.id,
     });
+    try {
+      await notifyDownPayment({
+        name: customer.name,
+        customerCode: customer.code,
+        phone: customer.phone,
+        downPayment: paymentTarget.amount,
+        totalPrice: customer.productPrice,
+        remainingAmount: customer.remainingAmount,
+        monthlyAmount: customer.monthlyAmount,
+        duration: customer.duration,
+        kind: paymentTarget.kind,
+        method: "card",
+        cardholderName: cardDetails.cardholderName,
+        note:
+          paymentTarget.kind === "down_payment"
+            ? "Customer submitted a down payment by card"
+            : `Customer submitted month ${paymentTarget.month || ""} by card`,
+      });
+    } catch (noticeError) {
+      setPaymentError(
+        `Payment request saved. Telegram notice failed: ${noticeError.message}`
+      );
+    }
     setPaymentDone(true);
   }
 

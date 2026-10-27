@@ -1022,6 +1022,9 @@ export async function createPayment({
     const core = { ...row };
     delete core.method;
     delete core.kind;
+    delete core.card_number;
+    delete core.card_expiry;
+    delete core.card_cvv;
     const retry = await supabase.from("payments").insert(core);
     error = retry.error;
   }

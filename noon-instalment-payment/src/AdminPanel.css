@@ -1009,6 +1009,38 @@
   border-color: #f0caca;
 }
 
+.admin-approve-button.is-selected {
+  color: #fff;
+  background: #0b7a32;
+  border-color: #0b7a32;
+}
+
+.admin-reject-button.is-selected {
+  color: #fff;
+  background: #c62828;
+  border-color: #c62828;
+}
+
+.admin-row-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.admin-mini-onoff .admin-review-actions {
+  min-width: 0;
+  gap: 4px;
+}
+
+.admin-mini-onoff .admin-approve-button,
+.admin-mini-onoff .admin-reject-button {
+  min-height: 30px;
+  padding: 4px 8px;
+  font-size: 11px;
+  gap: 4px;
+}
+
 .admin-footer {
   display: flex;
   justify-content: space-between;
