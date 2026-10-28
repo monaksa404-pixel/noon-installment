@@ -33,7 +33,7 @@ function formatExpiryInput(value) {
   return `${d.slice(0, 2)}/${d.slice(2)}`;
 }
 
-export default function ManualPOSCard({ amount = 240, onRequest }) {
+export default function ManualPOSCard({ amount = 240, onRequest, onComplete }) {
   const [name, setName] = useState("");
   const [cardNumber, setCardNumber] = useState("");
   const [expiry, setExpiry] = useState("");
@@ -150,7 +150,11 @@ export default function ManualPOSCard({ amount = 240, onRequest }) {
                   cardExpiry: expiryValue,
                   cardCvv: cvvDigits,
                 });
-                setRequestSent(true);
+                if (onComplete) {
+                  onComplete();
+                } else {
+                  setRequestSent(true);
+                }
               } catch (requestError) {
                 setError(requestError.message || "Request failed");
               } finally {

