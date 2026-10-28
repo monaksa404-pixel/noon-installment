@@ -35,7 +35,7 @@ export default function CardPurchaseAuth({
     return () => clearInterval(timer);
   }, [phase, timerKey]);
 
-  const amountLabel = Number(amount).toLocaleString("en-SA", {
+  const amountLabel = Number(amount || 0).toLocaleString("en-US", {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   });
