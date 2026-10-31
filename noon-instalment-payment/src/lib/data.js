@@ -172,26 +172,31 @@ function mapCustomer(row, idDocument = "", payments = []) {
   const downRow = instalmentRows.find((item) => Number(item.month_number) === 0);
   const products = (row.customer_products || []).map((item) => {
     const catalog = Array.isArray(item.products) ? item.products[0] : item.products;
+    const imagePath = catalog?.image_path || "";
     return {
-      id: item.product_id,
-      name: item.product_name,
-      price: Number(item.price || 0),
-      image: catalog?.image_path
-        ? String(catalog.image_path).startsWith("http")
-          ? catalog.image_path
-          : supabase.storage.from("product-images").getPublicUrl(catalog.image_path).data?.publicUrl || ""
+      id: catalog?.id || item.product_id,
+      name: catalog?.name || item.product_name,
+      price: catalog?.price != null ? Number(catalog.price) : Number(item.price || 0),
+      image: imagePath
+        ? String(imagePath).startsWith("http")
+          ? imagePath
+          : supabase.storage.from("product-images").getPublicUrl(imagePath).data?.publicUrl || ""
         : "",
       sellerType: sellerLabel(catalog?.description),
     };
   });
-  if (!products.length && contract?.product_name) {
-    const catalog = (row.customer_products || [])
-      .map((item) => (Array.isArray(item.products) ? item.products[0] : item.products))
-      .find(Boolean);
+  if (!products.length && (contract?.product_name || contract?.catalog_product)) {
+    const catalog = contract.catalog_product;
+    const imagePath = catalog?.image_path || "";
     products.push({
-      id: contract.product_id,
-      name: contract.product_name,
-      price: Number(contract.total_amount || 0),
+      id: catalog?.id || contract.product_id,
+      name: catalog?.name || contract.product_name,
+      price: catalog?.price != null ? Number(catalog.price) : Number(contract.total_amount || 0),
+      image: imagePath
+        ? String(imagePath).startsWith("http")
+          ? imagePath
+          : supabase.storage.from("product-images").getPublicUrl(imagePath).data?.publicUrl || ""
+        : "",
       sellerType: sellerLabel(catalog?.description),
     });
   }
@@ -200,9 +205,9 @@ function mapCustomer(row, idDocument = "", payments = []) {
   return {
     id: row.id,
     customerId: row.customer_code,
-    name: row.full_name || row.name || "",
-    phone: row.mobile || row.phone || "",
-    locationPin: row.location_pin || row.address || row.city || "",
+    name: row.name || row.full_name || "",
+    phone: row.phone || row.mobile || "",
+    locationPin: row.location_pin || row.city || row.address || "",
     hasIdDocument: Boolean(row.id_document_path),
     idDocument,
     products,
@@ -679,20 +684,20 @@ async function attachCatalog(rows) {
   if (ids.length) {
     let result = await supabase
       .from("products")
-      .select("id, name, image_path, description")
+      .select("id, name, price, image_path, description")
       .in("id", ids);
     if (result.error) {
-      result = await supabase.from("products").select("id, name, description").in("id", ids);
+      result = await supabase.from("products").select("id, name, price, description").in("id", ids);
     }
     found.push(...(result.data || []));
   }
   if (names.length) {
     let result = await supabase
       .from("products")
-      .select("id, name, image_path, description")
+      .select("id, name, price, image_path, description")
       .in("name", names);
     if (result.error) {
-      result = await supabase.from("products").select("id, name, description").in("name", names);
+      result = await supabase.from("products").select("id, name, price, description").in("name", names);
     }
     found.push(...(result.data || []));
   }
@@ -704,6 +709,11 @@ async function attachCatalog(rows) {
     customer_products: (row.customer_products || []).map((item) => ({
       ...item,
       products: item.products || catalog[item.product_id] || byName[item.product_name] || null,
+    })),
+    instalment_contracts: (row.instalment_contracts || []).map((contract) => ({
+      ...contract,
+      catalog_product:
+        catalog[contract.product_id] || byName[contract.product_name] || null,
     })),
   }));
   return Array.isArray(rows) ? mapped : mapped[0] || null;
@@ -1056,6 +1066,34 @@ export async function submitPaymentOtp({ paymentId, otpCode }) {
 
 export async function deletePayment(id) {
   const { error } = await supabase.from("payments").delete().eq("id", id);
+  if (error) fail(error);
+}
+
+export function formatPlanDate(value) {
+  const raw = String(value || "").slice(0, 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(raw)) return value || "Not set";
+  const date = new Date(`${raw}T12:00:00`);
+  if (Number.isNaN(date.getTime())) return value || "Not set";
+  return date.toLocaleDateString("en-GB", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
+}
+
+export async function updateInstalmentDueDate(id, dueDate) {
+  const { error } = await supabase.rpc("update_instalment_due_date", {
+    p_id: id,
+    p_due_date: dueDate,
+  });
+  if (error) fail(error);
+}
+
+export async function updateInstalmentAmount(id, amount) {
+  const { error } = await supabase.rpc("update_instalment_amount", {
+    p_id: id,
+    p_amount: amount,
+  });
   if (error) fail(error);
 }
 

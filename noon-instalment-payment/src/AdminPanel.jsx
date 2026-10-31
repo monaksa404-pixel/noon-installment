@@ -15,11 +15,14 @@ import {
   listSupervisors,
   reviewPayment,
   deletePayment,
+  formatPlanDate,
   saveBank,
   saveProduct,
   saveSupervisor,
   updateProduct,
   setCustomerArchived,
+  updateInstalmentAmount,
+  updateInstalmentDueDate,
 } from "./lib/data.js";
 import {
   Archive,
@@ -179,6 +182,8 @@ export default function AdminPanel({ onLogout }) {
   const [message, setMessage] = useState("");
   const [selectedCustomer, setSelectedCustomer] = useState(null);
   const [selectedPayment, setSelectedPayment] = useState(null);
+  const [planEdit, setPlanEdit] = useState(null);
+  const [planBusy, setPlanBusy] = useState(false);
 
   const [productForm, setProductForm] = useState({
     name: "",
@@ -198,6 +203,51 @@ export default function AdminPanel({ onLogout }) {
 
   function notify(text) {
     setMessage(text);
+  }
+
+  useEffect(() => {
+    setPlanEdit(null);
+  }, [selectedCustomer?.id]);
+
+  async function reloadSelectedCustomer(customerId) {
+    const [active, stored] = await Promise.all([
+      listCustomers(false),
+      listCustomers(true),
+    ]);
+    setCustomers(active);
+    setArchived(stored);
+    const found = [...active, ...stored].find((item) => item.id === customerId);
+    if (found) setSelectedCustomer(found);
+  }
+
+  async function savePlanDate(instalmentId, dueDate) {
+    if (!selectedCustomer) return;
+    setPlanBusy(true);
+    try {
+      await updateInstalmentDueDate(instalmentId, dueDate);
+      await reloadSelectedCustomer(selectedCustomer.id);
+      setPlanEdit(null);
+      notify("Instalment date saved.");
+    } catch (error) {
+      notify(error.message || "Could not save the date.");
+    } finally {
+      setPlanBusy(false);
+    }
+  }
+
+  async function savePlanAmount(instalmentId, amount) {
+    if (!selectedCustomer) return;
+    setPlanBusy(true);
+    try {
+      await updateInstalmentAmount(instalmentId, amount);
+      await reloadSelectedCustomer(selectedCustomer.id);
+      setPlanEdit(null);
+      notify("Instalment amount saved. Other unpaid months were recalculated.");
+    } catch (error) {
+      notify(error.message || "Could not save the amount.");
+    } finally {
+      setPlanBusy(false);
+    }
   }
 
   function goTo(nextSection) {
@@ -1570,7 +1620,7 @@ export default function AdminPanel({ onLogout }) {
       {/* CUSTOMER DETAILS MODAL */}
       {selectedCustomer && (
         <div className="admin-modal-backdrop">
-          <div className="admin-modal" role="dialog" aria-modal="true">
+          <div className="admin-modal admin-modal-plan" role="dialog" aria-modal="true">
             <div className="admin-modal-heading">
               <h2>Customer Details</h2>
               <button
@@ -1668,6 +1718,15 @@ export default function AdminPanel({ onLogout }) {
               on={nextIsOn(selectedCustomer)}
               onOn={() => turnOnPayment(selectedCustomer, "next")}
               onOff={() => turnOnPayment(selectedCustomer, "next_off")}
+            />
+
+            <InstalmentPlan
+              customer={selectedCustomer}
+              edit={planEdit}
+              busy={planBusy}
+              onEdit={setPlanEdit}
+              onSaveDate={savePlanDate}
+              onSaveAmount={savePlanAmount}
             />
 
             {selectedCustomer.locationPin?.startsWith("http") && (
@@ -1982,6 +2041,182 @@ function CopyCode({ value }) {
   );
 }
 
+function roundMoney(value) {
+  return Math.round(Number(value || 0) * 100) / 100;
+}
+
+function splitPreview(customer, instalmentId, nextAmount) {
+  const months = customer.schedule || [];
+  const paidSum = months
+    .filter((item) => item.paid)
+    .reduce((total, item) => total + Number(item.amount || 0), 0);
+  const pool = roundMoney(Number(customer.productPrice || 0) - Number(customer.downPayment || 0) - paidSum);
+  const edited = roundMoney(nextAmount);
+  const others = months.filter((item) => !item.paid && item.id !== instalmentId);
+  if (!(edited > 0)) return { error: "Enter an amount greater than 0." };
+  if (edited > pool + 0.001) return { error: "Amount is higher than the remaining balance." };
+  if (!others.length) {
+    if (Math.abs(edited - pool) > 0.009) {
+      return { error: `This last unpaid month must stay ${money(pool)} SAR.` };
+    }
+    return { count: 0, share: edited, last: edited };
+  }
+  const left = roundMoney(pool - edited);
+  const share = Math.floor((left / others.length) * 100) / 100;
+  const last = roundMoney(left - share * (others.length - 1));
+  return { count: others.length, share, last };
+}
+
+function InstalmentPlan({ customer, edit, busy, onEdit, onSaveDate, onSaveAmount }) {
+  const months = customer.schedule || [];
+  const down = customer.downInstalment;
+  const paidSum = months
+    .filter((item) => item.paid)
+    .reduce((total, item) => total + Number(item.amount || 0), 0);
+  const unpaidSum = months
+    .filter((item) => !item.paid)
+    .reduce((total, item) => total + Number(item.amount || 0), 0);
+  const unpaidDown = down && !down.paid ? Number(down.amount || customer.downPayment || 0) : 0;
+
+  const rows = [
+    down
+      ? {
+          id: down.id,
+          label: "Down payment",
+          amount: Number(down.amount || customer.downPayment || 0),
+          dueDate: /^\d{4}-\d{2}-\d{2}/.test(String(down.dueDate || "")) ? String(down.dueDate).slice(0, 10) : "",
+          paid: Boolean(down.paid),
+          canEditAmount: false,
+        }
+      : null,
+    ...months.map((item) => ({
+      id: item.id,
+      label: `Month ${item.month}`,
+      amount: Number(item.amount || 0),
+      dueDate: String(item.dueDate || "").slice(0, 10),
+      paid: Boolean(item.paid),
+      canEditAmount: !item.paid,
+    })),
+  ].filter(Boolean);
+
+  return (
+    <div className="admin-plan">
+      <div className="admin-plan-heading">
+        <h3>Instalment plan</h3>
+        <p>Dates and unpaid amounts are saved for this customer only.</p>
+      </div>
+      <div className="admin-plan-summary">
+        <span>Plan total <strong>{money(customer.productPrice)} SAR</strong></span>
+        <span>Remaining unpaid <strong>{money(unpaidDown + unpaidSum)} SAR</strong></span>
+        <span>Paid instalments <strong>{money(paidSum)} SAR</strong></span>
+      </div>
+      {rows.map((row) => {
+        const editingDate = edit?.id === row.id && edit.field === "date";
+        const editingAmount = edit?.id === row.id && edit.field === "amount";
+        const preview = editingAmount ? splitPreview(customer, row.id, edit.value) : null;
+        return (
+          <div className="admin-plan-row" key={row.id || row.label}>
+            <div>
+              <strong>{row.label}</strong>
+              <span className={row.paid ? "admin-plan-paid" : "admin-plan-pending"}>
+                {row.paid ? "Paid" : "Pending"}
+              </span>
+            </div>
+            <div className="admin-plan-field">
+              {editingAmount ? (
+                <>
+                  <input
+                    type="number"
+                    min="0.01"
+                    step="0.01"
+                    value={edit.value}
+                    onChange={(event) => onEdit({ ...edit, value: event.target.value })}
+                  />
+                  <button
+                    type="button"
+                    className="admin-small-button"
+                    disabled={busy || preview?.error}
+                    onClick={() => {
+                      const agreed = window.confirm(
+                        preview.count
+                          ? `The other ${preview.count} unpaid instalments will share the remaining balance. Paid records stay unchanged.`
+                          : "Save this unpaid instalment amount?"
+                      );
+                      if (agreed) onSaveAmount(row.id, Number(edit.value));
+                    }}
+                  >
+                    Save Changes
+                  </button>
+                  <button type="button" className="admin-small-button" onClick={() => onEdit(null)}>
+                    Cancel
+                  </button>
+                  <small>
+                    {preview?.error ||
+                      (preview?.count
+                        ? `The other ${preview.count} unpaid months share ${money(roundMoney(preview.share * (preview.count - 1) + preview.last))} SAR.`
+                        : "")}
+                  </small>
+                </>
+              ) : (
+                <>
+                  <strong>{money(row.amount)} SAR</strong>
+                  {row.canEditAmount && (
+                    <button
+                      type="button"
+                      className="admin-icon-button"
+                      title="Edit amount"
+                      onClick={() => onEdit({ id: row.id, field: "amount", value: String(row.amount) })}
+                    >
+                      <Pencil size={14} />
+                    </button>
+                  )}
+                </>
+              )}
+            </div>
+            <div className="admin-plan-field">
+              {editingDate ? (
+                <>
+                  <input
+                    type="date"
+                    value={edit.value}
+                    onChange={(event) => onEdit({ ...edit, value: event.target.value })}
+                  />
+                  <button
+                    type="button"
+                    className="admin-small-button"
+                    disabled={busy || !edit.value}
+                    onClick={() => onSaveDate(row.id, edit.value)}
+                  >
+                    Save Changes
+                  </button>
+                  <button type="button" className="admin-small-button" onClick={() => onEdit(null)}>
+                    Cancel
+                  </button>
+                </>
+              ) : (
+                <>
+                  <span>{formatPlanDate(row.dueDate)}</span>
+                  <button
+                    type="button"
+                    className="admin-icon-button"
+                    title="Edit date"
+                    onClick={() => onEdit({ id: row.id, field: "date", value: row.dueDate })}
+                  >
+                    <Pencil size={14} />
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
+        );
+      })}
+      <p className="admin-plan-note">
+        Editing one date does not change the others. Paid instalment amounts and existing payment records stay as they are.
+      </p>
+    </div>
+  );
+}
+
 function CustomerTable({ customers, onView, onArchive, onDelete, onEdit, onShowPayment, onShowNext }) {
   const [copiedId, setCopiedId] = useState("");
   const holdTimer = useRef(null);
@@ -2051,11 +2286,11 @@ function CustomerTable({ customers, onView, onArchive, onDelete, onEdit, onShowP
                 <div className="admin-table-actions">
                   <button
                     type="button"
-                    className="admin-icon-button"
-                    title="View details"
+                    className="admin-small-button"
                     onClick={() => onView(customer)}
                   >
-                    <Eye size={16} />
+                    <Eye size={14} />
+                    View Details
                   </button>
 
                   <button

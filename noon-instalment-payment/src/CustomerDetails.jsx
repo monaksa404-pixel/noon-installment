@@ -17,6 +17,7 @@ import {
   ArrowRight,
   ExternalLink,
 } from "lucide-react";
+import { formatPlanDate } from "./lib/data.js";
 import "./CustomerDetails.css";
 
 const demoCustomer = {
@@ -399,7 +400,11 @@ export default function CustomerDetails({
 
               <div className="cd-down-info">
                 <h3>Down Payment</h3>
-                <small>One-time payment</small>
+                <small>
+                  {customer.downInstalment?.dueDate
+                    ? formatPlanDate(customer.downInstalment.dueDate)
+                    : "One-time payment"}
+                </small>
               </div>
 
               <strong className="cd-down-amount">
@@ -429,14 +434,23 @@ export default function CustomerDetails({
           </div>
 
           <div className="cd-installments-grid">
-            {Array.from({ length: duration }, (_, index) => {
-              const month = index + 1;
-              const isPaid = paidMonths.includes(month);
-              const isCurrent = (customer.enabledMonths || []).includes(month);
+            {(customer.schedule?.length
+              ? customer.schedule
+              : Array.from({ length: duration }, (_, index) => ({
+                  month: index + 1,
+                  amount: customer.monthlyAmount,
+                  dueDate: "",
+                  paid: paidMonths.includes(index + 1),
+                  enabled: (customer.enabledMonths || []).includes(index + 1),
+                }))
+            ).map((item) => {
+              const month = item.month;
+              const isPaid = item.paid || paidMonths.includes(month);
+              const isCurrent = item.enabled || (customer.enabledMonths || []).includes(month);
 
               return (
                 <div
-                  key={month}
+                  key={item.id || month}
                   className={`cd-installment ${
                     isPaid ? "is-paid" : isCurrent ? "is-current" : "is-pending"
                   }`}
@@ -451,11 +465,13 @@ export default function CustomerDetails({
                   </div>
 
                   <strong>
-                    {formatSAR(customer.monthlyAmount)}
+                    {formatSAR(item.amount || customer.monthlyAmount)}
                   </strong>
 
                   <span className="cd-due-date">
-                    {getDueDate(customer.startDate, month)}
+                    {item.dueDate
+                      ? formatPlanDate(item.dueDate)
+                      : getDueDate(customer.startDate, month)}
                   </span>
 
                   <span className="cd-installment-status">

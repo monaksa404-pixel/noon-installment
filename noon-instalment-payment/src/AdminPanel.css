@@ -1467,3 +1467,94 @@
 .admin-shell .admin-logo {
   background-color: #fff !important;
 }
+
+.admin-modal-plan {
+  width: min(720px, 100%);
+}
+
+.admin-plan {
+  margin-top: 16px;
+  padding-top: 8px;
+  border-top: 1px solid #eee;
+}
+
+.admin-plan-heading h3 {
+  margin: 0 0 4px;
+  font-size: 15px;
+}
+
+.admin-plan-heading p,
+.admin-plan-note {
+  margin: 0 0 10px;
+  color: #666;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.admin-plan-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+  margin-bottom: 12px;
+  font-size: 12px;
+  color: #444;
+}
+
+.admin-plan-row {
+  display: grid;
+  grid-template-columns: minmax(110px, 0.8fr) minmax(0, 1.2fr) minmax(0, 1.2fr);
+  gap: 8px 12px;
+  align-items: start;
+  padding: 10px 0;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.admin-plan-row strong {
+  display: block;
+  font-size: 13px;
+}
+
+.admin-plan-paid,
+.admin-plan-pending {
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.admin-plan-paid {
+  color: #1d7a32;
+}
+
+.admin-plan-pending {
+  color: #8a6a00;
+}
+
+.admin-plan-field {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.admin-plan-field input {
+  width: 140px;
+  max-width: 100%;
+  height: 36px;
+  padding: 0 8px;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  font: inherit;
+}
+
+.admin-plan-field small {
+  flex-basis: 100%;
+  color: #666;
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+@media (max-width: 700px) {
+  .admin-plan-row {
+    grid-template-columns: 1fr;
+  }
+}

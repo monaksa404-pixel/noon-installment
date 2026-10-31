@@ -5,6 +5,7 @@ import {
   deletePayment,
   findSupervisorByUsername,
   getCustomerByCode,
+  formatPlanDate,
   notifyDownPayment,
   portalView,
   submitPaymentOtp,
@@ -641,7 +642,10 @@ export default function App() {
                 </div>
 
                 <div className="due-date">
-                  Due date <strong>{paymentTarget?.dueDate || customer.dueDate}</strong>
+                  Due date{" "}
+                  <strong>
+                    {formatPlanDate(paymentTarget?.dueDate || customer.dueDate)}
+                  </strong>
                 </div>
 
                 <div className="payment-product-line">

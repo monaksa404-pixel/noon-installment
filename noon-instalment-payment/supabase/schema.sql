@@ -971,3 +971,132 @@ where month_number = 0
   and coalesce(enabled, false) = false;
 
 notify pgrst, 'reload schema';
+
+create or replace function public.update_instalment_due_date(p_id uuid, p_due_date date)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if p_due_date is null then
+    raise exception 'Choose a date';
+  end if;
+
+  update public.instalments
+  set due_date = p_due_date
+  where id = p_id;
+
+  if not found then
+    raise exception 'Instalment not found';
+  end if;
+end;
+$$;
+
+create or replace function public.update_instalment_amount(p_id uuid, p_amount numeric)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  row_month int;
+  row_paid timestamptz;
+  row_status text;
+  target_contract uuid;
+  plan_total numeric;
+  down_amount numeric;
+  paid_sum numeric;
+  pool numeric;
+  edited numeric;
+  left_amount numeric;
+  share numeric;
+  last_amount numeric;
+  other_count int;
+  index_no int := 0;
+  other_row record;
+begin
+  select i.month_number, i.paid_at, i.status, i.contract_id, c.total_amount, c.down_payment
+  into row_month, row_paid, row_status, target_contract, plan_total, down_amount
+  from public.instalments i
+  join public.instalment_contracts c on c.id = i.contract_id
+  where i.id = p_id;
+
+  if target_contract is null then
+    raise exception 'Instalment not found';
+  end if;
+  if coalesce(row_month, 0) = 0 then
+    raise exception 'Down payment amount stays unchanged';
+  end if;
+  if row_paid is not null or row_status = 'paid' then
+    raise exception 'Paid instalment amounts stay unchanged';
+  end if;
+
+  select coalesce(sum(amount), 0)
+  into paid_sum
+  from public.instalments
+  where contract_id = target_contract
+    and month_number > 0
+    and (paid_at is not null or status = 'paid');
+
+  pool := round(coalesce(plan_total, 0) - coalesce(down_amount, 0) - coalesce(paid_sum, 0), 2);
+  edited := round(coalesce(p_amount, 0), 2);
+
+  if edited <= 0 then
+    raise exception 'Enter an amount greater than 0';
+  end if;
+  if edited > pool then
+    raise exception 'Amount is higher than the remaining balance';
+  end if;
+
+  select count(*)
+  into other_count
+  from public.instalments
+  where contract_id = target_contract
+    and month_number > 0
+    and id <> p_id
+    and paid_at is null
+    and status <> 'paid';
+
+  if other_count = 0 then
+    if edited <> pool then
+      raise exception 'This last unpaid month must stay %', pool;
+    end if;
+    update public.instalments set amount = edited where id = p_id;
+    update public.instalment_contracts
+    set monthly_amount = edited
+    where id = target_contract;
+    return;
+  end if;
+
+  left_amount := round(pool - edited, 2);
+  share := trunc(left_amount / other_count, 2);
+  last_amount := round(left_amount - (share * (other_count - 1)), 2);
+
+  for other_row in
+    select id
+    from public.instalments
+    where contract_id = target_contract
+      and month_number > 0
+      and id <> p_id
+      and paid_at is null
+      and status <> 'paid'
+    order by month_number
+  loop
+    index_no := index_no + 1;
+    update public.instalments
+    set amount = case when index_no = other_count then last_amount else share end
+    where id = other_row.id;
+  end loop;
+
+  update public.instalments set amount = edited where id = p_id;
+  update public.instalment_contracts
+  set monthly_amount = share
+  where id = target_contract;
+end;
+$$;
+
+grant execute on function public.update_instalment_due_date(uuid, date) to anon, authenticated;
+grant execute on function public.update_instalment_amount(uuid, numeric) to anon, authenticated;
+
+notify pgrst, 'reload schema';
