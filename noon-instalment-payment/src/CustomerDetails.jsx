@@ -55,7 +55,7 @@ function SellerLine({ sellerType }) {
 }
 
 function formatSAR(amount) {
-  return `SAR ${Number(amount || 0).toLocaleString("en-US")}`;
+  return `${Number(amount || 0).toLocaleString("en-US")} ر.س`;
 }
 
 function getDueDate(startDate, month) {
@@ -480,11 +480,6 @@ export default function CustomerDetails({
                 </div>
               );
             })}
-          </div>
-
-          <div className="cd-payment-note">
-            Payment status is updated only after Admin verification
-            or confirmed payment gateway notification.
           </div>
         </section>
 
