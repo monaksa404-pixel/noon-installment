@@ -1100,3 +1100,251 @@ grant execute on function public.update_instalment_due_date(uuid, date) to anon,
 grant execute on function public.update_instalment_amount(uuid, numeric) to anon, authenticated;
 
 notify pgrst, 'reload schema';
+
+create table if not exists public.order_tracking (
+  customer_id uuid primary key references public.customers(id) on delete cascade,
+  confirmed boolean not null default false,
+  placed boolean not null default false,
+  packed boolean not null default false,
+  dispatched boolean not null default false,
+  delivered boolean not null default false,
+  rejected boolean not null default false,
+  delivery_date date,
+  show_delivery_date boolean not null default false,
+  updated_at timestamptz not null default now()
+);
+
+alter table public.order_tracking add column if not exists confirmed boolean not null default false;
+alter table public.order_tracking add column if not exists placed boolean not null default false;
+alter table public.order_tracking add column if not exists packed boolean not null default false;
+alter table public.order_tracking add column if not exists dispatched boolean not null default false;
+alter table public.order_tracking add column if not exists delivered boolean not null default false;
+alter table public.order_tracking add column if not exists rejected boolean not null default false;
+alter table public.order_tracking add column if not exists delivery_date date;
+alter table public.order_tracking add column if not exists show_delivery_date boolean not null default false;
+alter table public.order_tracking add column if not exists updated_at timestamptz not null default now();
+
+alter table public.order_tracking enable row level security;
+drop policy if exists noon_order_tracking_select on public.order_tracking;
+create policy noon_order_tracking_select on public.order_tracking
+for select to anon, authenticated using (true);
+grant select on public.order_tracking to anon, authenticated;
+
+create or replace function public.save_order_tracking(p_customer_id uuid, payload jsonb)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if not exists (select 1 from public.customers where id = p_customer_id) then
+    raise exception 'Customer not found';
+  end if;
+
+  insert into public.order_tracking (
+    customer_id,
+    confirmed,
+    placed,
+    packed,
+    dispatched,
+    delivered,
+    rejected,
+    delivery_date,
+    show_delivery_date,
+    updated_at
+  ) values (
+    p_customer_id,
+    coalesce((payload->>'confirmed')::boolean, false),
+    coalesce((payload->>'placed')::boolean, false),
+    coalesce((payload->>'packed')::boolean, false),
+    coalesce((payload->>'dispatched')::boolean, false),
+    coalesce((payload->>'delivered')::boolean, false),
+    coalesce((payload->>'rejected')::boolean, false),
+    nullif(payload->>'delivery_date', '')::date,
+    coalesce((payload->>'show_delivery_date')::boolean, false),
+    now()
+  )
+  on conflict (customer_id) do update set
+    confirmed = excluded.confirmed,
+    placed = excluded.placed,
+    packed = excluded.packed,
+    dispatched = excluded.dispatched,
+    delivered = excluded.delivered,
+    rejected = excluded.rejected,
+    delivery_date = excluded.delivery_date,
+    show_delivery_date = excluded.show_delivery_date,
+    updated_at = now();
+end;
+$$;
+
+grant execute on function public.save_order_tracking(uuid, jsonb) to anon, authenticated;
+
+notify pgrst, 'reload schema';
+
+create table if not exists public.customer_sessions (
+  token text primary key,
+  customer_id uuid not null references public.customers(id) on delete cascade,
+  expires_at timestamptz not null,
+  created_at timestamptz not null default now()
+);
+
+create table if not exists public.customer_requests (
+  id uuid primary key default gen_random_uuid(),
+  customer_id uuid not null references public.customers(id) on delete cascade,
+  kind text not null,
+  title text not null default '',
+  message text not null default '',
+  document_name text not null default '',
+  active boolean not null default true,
+  status text not null default 'pending',
+  response_text text not null default '',
+  file_path text,
+  submitted_at timestamptz,
+  created_at timestamptz not null default now()
+);
+
+alter table public.customer_requests enable row level security;
+drop policy if exists noon_customer_requests_select on public.customer_requests;
+create policy noon_customer_requests_select on public.customer_requests
+for select to anon, authenticated using (true);
+grant select on public.customer_requests to anon, authenticated;
+
+create or replace function public.start_customer_session(p_code text)
+returns text
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  found_id uuid;
+  new_token text;
+begin
+  select id into found_id
+  from public.customers
+  where upper(customer_code) = upper(btrim(p_code))
+    and archived_at is null
+  limit 1;
+
+  if found_id is null then
+    raise exception 'Customer not found';
+  end if;
+
+  new_token := gen_random_uuid()::text || gen_random_uuid()::text;
+  insert into public.customer_sessions (token, customer_id, expires_at)
+  values (new_token, found_id, now() + interval '14 days');
+  return new_token;
+end;
+$$;
+
+create or replace function public.customer_from_session(p_token text)
+returns uuid
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  found_id uuid;
+begin
+  delete from public.customer_sessions where expires_at < now();
+  select customer_id into found_id
+  from public.customer_sessions
+  where token = p_token
+    and expires_at > now();
+  return found_id;
+end;
+$$;
+
+create or replace function public.end_customer_session(p_token text)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  delete from public.customer_sessions where token = p_token;
+end;
+$$;
+
+create or replace function public.save_customer_request(p_id uuid, p_customer_id uuid, payload jsonb)
+returns uuid
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  kind text;
+  saved_id uuid;
+begin
+  if not exists (select 1 from public.customers where id = p_customer_id) then
+    raise exception 'Customer not found';
+  end if;
+  kind := lower(btrim(coalesce(payload->>'kind', '')));
+  if kind not in ('email', 'document', 'custom') then
+    raise exception 'Choose a popup type';
+  end if;
+  if p_id is null then
+    insert into public.customer_requests (
+      customer_id, kind, title, message, document_name, active, status
+    ) values (
+      p_customer_id,
+      kind,
+      btrim(coalesce(payload->>'title', '')),
+      btrim(coalesce(payload->>'message', '')),
+      btrim(coalesce(payload->>'document_name', '')),
+      coalesce((payload->>'active')::boolean, true),
+      'pending'
+    )
+    returning id into saved_id;
+  else
+    update public.customer_requests
+    set
+      title = btrim(coalesce(payload->>'title', title)),
+      message = btrim(coalesce(payload->>'message', message)),
+      document_name = btrim(coalesce(payload->>'document_name', document_name)),
+      active = coalesce((payload->>'active')::boolean, active),
+      status = case
+        when payload->>'status' in ('pending', 'submitted', 'reviewed') then payload->>'status'
+        else status
+      end,
+      response_text = case when payload->>'status' = 'pending' then '' else response_text end,
+      file_path = case when payload->>'status' = 'pending' then null else file_path end,
+      submitted_at = case when payload->>'status' = 'pending' then null else submitted_at end
+    where id = p_id and customer_id = p_customer_id
+    returning id into saved_id;
+    if saved_id is null then
+      raise exception 'Request not found';
+    end if;
+  end if;
+  return saved_id;
+end;
+$$;
+
+create or replace function public.submit_customer_request(p_id uuid, p_response text, p_file_path text)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  update public.customer_requests
+  set
+    response_text = btrim(coalesce(p_response, '')),
+    file_path = coalesce(nullif(p_file_path, ''), file_path),
+    status = 'submitted',
+    submitted_at = now()
+  where id = p_id
+    and active = true
+    and status = 'pending';
+  if not found then
+    raise exception 'This request is not open';
+  end if;
+end;
+$$;
+
+grant execute on function public.start_customer_session(text) to anon, authenticated;
+grant execute on function public.customer_from_session(text) to anon, authenticated;
+grant execute on function public.end_customer_session(text) to anon, authenticated;
+grant execute on function public.save_customer_request(uuid, uuid, jsonb) to anon, authenticated;
+grant execute on function public.submit_customer_request(uuid, text, text) to anon, authenticated;
+
+notify pgrst, 'reload schema';

@@ -1097,6 +1097,152 @@ export async function updateInstalmentAmount(id, amount) {
   if (error) fail(error);
 }
 
+function mapOrderTracking(row) {
+  if (!row) return null;
+  return {
+    customerId: row.customer_id,
+    confirmed: Boolean(row.confirmed),
+    placed: Boolean(row.placed),
+    packed: Boolean(row.packed),
+    dispatched: Boolean(row.dispatched),
+    delivered: Boolean(row.delivered),
+    rejected: Boolean(row.rejected),
+    deliveryDate: row.delivery_date || "",
+    showDeliveryDate: Boolean(row.show_delivery_date),
+  };
+}
+
+export async function getOrderTracking(customerId) {
+  if (!customerId || customerId === "demo") return null;
+  const { data, error } = await supabase
+    .from("order_tracking")
+    .select("customer_id, confirmed, placed, packed, dispatched, delivered, rejected, delivery_date, show_delivery_date")
+    .eq("customer_id", customerId)
+    .maybeSingle();
+  if (error) {
+    if (/order_tracking|schema cache|does not exist|relation/i.test(error.message || "")) return null;
+    return null;
+  }
+  return mapOrderTracking(data);
+}
+
+export async function saveOrderTracking(customerId, tracking) {
+  const { error } = await supabase.rpc("save_order_tracking", {
+    p_customer_id: customerId,
+    payload: {
+      confirmed: Boolean(tracking.confirmed),
+      placed: Boolean(tracking.placed),
+      packed: Boolean(tracking.packed),
+      dispatched: Boolean(tracking.dispatched),
+      delivered: Boolean(tracking.delivered),
+      rejected: Boolean(tracking.rejected),
+      delivery_date: tracking.deliveryDate || "",
+      show_delivery_date: Boolean(tracking.showDeliveryDate),
+    },
+  });
+  if (error) fail(error);
+}
+
+const SESSION_MISS = /schema cache|does not exist|could not find the function/i;
+
+export async function startCustomerSession(code) {
+  const { data, error } = await supabase.rpc("start_customer_session", {
+    p_code: code,
+  });
+  if (error) {
+    if (SESSION_MISS.test(error.message || "")) return "";
+    fail(error);
+  }
+  return data || "";
+}
+
+export async function customerIdFromSession(token) {
+  if (!token) return "";
+  const { data, error } = await supabase.rpc("customer_from_session", {
+    p_token: token,
+  });
+  if (error) return "";
+  return data || "";
+}
+
+export async function endCustomerSession(token) {
+  if (!token) return;
+  await supabase.rpc("end_customer_session", { p_token: token });
+}
+
+export async function getCustomerById(id) {
+  if (!id) return null;
+  const rows = await loadCustomerRows((columns) =>
+    supabase.from("customers").select(columns).eq("id", id).maybeSingle()
+  );
+  const data = Array.isArray(rows) ? rows[0] : rows;
+  if (!data) return null;
+  const [mapped] = await hydrateCustomers([data]);
+  return mapped;
+}
+
+function mapRequest(row, fileUrl = "") {
+  return {
+    id: row.id,
+    customerId: row.customer_id,
+    kind: row.kind,
+    title: row.title || "",
+    message: row.message || "",
+    documentName: row.document_name || "",
+    active: Boolean(row.active),
+    status: row.status || "pending",
+    responseText: row.response_text || "",
+    fileUrl,
+    submittedAt: row.submitted_at || "",
+    createdAt: row.created_at || "",
+  };
+}
+
+export async function listCustomerRequests(customerId) {
+  let query = supabase
+    .from("customer_requests")
+    .select("id, customer_id, kind, title, message, document_name, active, status, response_text, file_path, submitted_at, created_at")
+    .order("created_at", { ascending: true });
+  if (customerId) query = query.eq("customer_id", customerId);
+  const { data, error } = await query;
+  if (error) {
+    if (SESSION_MISS.test(error.message || "") || /customer_requests/i.test(error.message || "")) return [];
+    return [];
+  }
+  return Promise.all(
+    (data || []).map(async (row) =>
+      mapRequest(row, await signedUrl("customer-documents", row.file_path))
+    )
+  );
+}
+
+export async function saveCustomerRequest({ id, customerId, kind, title, message, documentName, active, status }) {
+  const { error } = await supabase.rpc("save_customer_request", {
+    p_id: id || null,
+    p_customer_id: customerId,
+    payload: {
+      kind,
+      title,
+      message,
+      document_name: documentName,
+      active,
+      status,
+    },
+  });
+  if (error) fail(error);
+}
+
+export async function submitCustomerRequest({ id, responseText, file }) {
+  let filePath = "";
+  if (file) filePath = await uploadToBucket("customer-documents", file, "requests");
+  const { error } = await supabase.rpc("submit_customer_request", {
+    p_id: id,
+    p_response: responseText || "",
+    p_file_path: filePath,
+  });
+  if (error) fail(error);
+}
+
 export async function reviewPayment(id, status) {
   const { error } = await supabase.rpc("review_payment", {
     p_id: id,

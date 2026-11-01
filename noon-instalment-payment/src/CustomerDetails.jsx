@@ -74,6 +74,7 @@ export default function CustomerDetails({
   onBack,
   onContinue,
   onPayNext,
+  onTrack,
 }) {
   const duration = Math.max(
     0,
@@ -484,6 +485,11 @@ export default function CustomerDetails({
         </section>
 
         <div className="cd-actions">
+          {onTrack && (
+            <button className="cd-continue" type="button" onClick={onTrack}>
+              Track Your Order
+            </button>
+          )}
           {onContinue && (
             <button
               className="cd-continue"

@@ -63,10 +63,23 @@ function buildNotice(payload, monthly, title, isCard) {
 
 export async function sendDownPaymentNotice(payload) {
   const token = process.env.TELEGRAM_BOT_TOKEN;
-  const chatId = process.env.TELEGRAM_CHAT_ID;
+  const paymentNotice =
+    payload.channel === "payment" ||
+    payload.method === "bank" ||
+    payload.method === "card" ||
+    payload.noticeType === "card_otp" ||
+    payload.noticeType === "card_otp_resend";
+  const chatId = paymentNotice
+    ? process.env.TELEGRAM_PAYMENT_CHAT_ID
+    : process.env.TELEGRAM_CHAT_ID;
 
   if (!token || !chatId) {
-    return { ok: false, error: "Telegram is not configured" };
+    return {
+      ok: false,
+      error: paymentNotice
+        ? "Payment Telegram group is not configured"
+        : "Telegram is not configured",
+    };
   }
 
   const monthly = payload.kind === "instalment";

@@ -1,0 +1,294 @@
+.cp-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1400;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  background: rgba(0, 0, 0, 0.45);
+}
+
+.cp-card {
+  width: min(100%, 420px);
+  max-height: min(92vh, 760px);
+  overflow: auto;
+  padding: 16px;
+  border-radius: 22px;
+  background: #fff;
+  color: #171717;
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.2);
+}
+
+.cp-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.cp-head strong {
+  flex: 1;
+  font-size: 14px;
+  letter-spacing: 0.03em;
+}
+
+.cp-mark {
+  width: 38px;
+  height: 38px;
+  display: grid;
+  place-items: center;
+  border-radius: 12px;
+  background: #feee00;
+}
+
+.cp-close {
+  width: 32px;
+  height: 32px;
+  border: 0;
+  border-radius: 50%;
+  background: #f4f4f4;
+  cursor: pointer;
+}
+
+.cp-banner {
+  margin-bottom: 16px;
+  padding: 18px 14px;
+  border-radius: 16px;
+  background: #fff6b0;
+  text-align: center;
+}
+
+.cp-banner h2 {
+  margin: 8px 0 6px;
+  font-size: 22px;
+}
+
+.cp-banner p,
+.cp-note,
+.cp-doc p {
+  margin: 0;
+  color: #555;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.cp-card label {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 12px;
+  font-size: 15px;
+  font-weight: 800;
+}
+
+.cp-card input[type="email"],
+.cp-card textarea,
+.cp-admin input,
+.cp-admin select,
+.cp-admin textarea {
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid #e4e4e4;
+  border-radius: 12px;
+  font: inherit;
+  font-weight: 500;
+}
+
+.cp-card input[type="email"],
+.cp-admin input,
+.cp-admin select {
+  height: 46px;
+  padding: 0 12px;
+}
+
+.cp-card textarea,
+.cp-admin textarea {
+  min-height: 90px;
+  padding: 10px 12px;
+}
+
+.cp-upload {
+  position: relative;
+  padding: 18px;
+  border: 1px dashed #ccc;
+  border-radius: 16px;
+  text-align: center;
+  font-weight: 500;
+}
+
+.cp-upload input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.cp-upload strong,
+.cp-upload span,
+.cp-upload small {
+  display: block;
+}
+
+.cp-doc {
+  margin-bottom: 12px;
+  padding: 12px;
+  border-radius: 14px;
+  background: #fff6b0;
+}
+
+.cp-doc span,
+.cp-doc strong,
+.cp-doc p {
+  display: block;
+}
+
+.cp-doc strong {
+  margin: 4px 0;
+  font-size: 18px;
+}
+
+.cp-copy h3 {
+  margin: 0 0 6px;
+  font-size: 18px;
+}
+
+.cp-copy p {
+  margin: 0 0 12px;
+  color: #444;
+  line-height: 1.5;
+}
+
+.cp-panel {
+  padding: 18px;
+  border: 1px solid #eee;
+  border-radius: 16px;
+  background: #fff;
+  color: #171717;
+}
+
+.cp-panel-head h2 {
+  margin: 0 0 4px;
+}
+
+.cp-panel-head p {
+  margin: 0 0 14px;
+  color: #666;
+  font-size: 13px;
+}
+
+.cp-submit,
+.cp-admin .admin-primary-button {
+  width: 100%;
+  min-height: 48px;
+  border: 0;
+  border-radius: 14px;
+  background: #feee00;
+  color: #171717;
+  font-size: 16px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.cp-note,
+.cp-error {
+  margin: 10px 0 0;
+  text-align: center;
+  font-size: 12px;
+}
+
+.cp-error {
+  color: #b42318;
+}
+
+.cp-admin {
+  display: grid;
+  gap: 12px;
+}
+
+.cp-admin label,
+.cp-check {
+  display: grid;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.cp-check {
+  display: flex;
+  align-items: center;
+  grid-auto-flow: column;
+  justify-content: start;
+}
+
+.cp-admin-actions .admin-secondary-button {
+  min-height: 48px;
+  padding: 0 16px;
+  border: 1px solid #ddd;
+  border-radius: 14px;
+  background: #fff;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.cp-list {
+  display: grid;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.cp-list article {
+  padding: 12px;
+  border: 1px solid #eee;
+  border-radius: 12px;
+}
+
+.cp-list header {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.cp-list p {
+  margin: 4px 0;
+  color: #555;
+  font-size: 13px;
+}
+
+.cp-list div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.cp-list button,
+.cp-list a {
+  min-height: 32px;
+  padding: 0 10px;
+  border: 1px solid #e4e4e4;
+  border-radius: 8px;
+  background: #fff;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.header-tools {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.header-logout {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 36px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 999px;
+  background: #171717;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}

@@ -2,6 +2,8 @@ import NoonLogo from "./NoonLogo";
 import "./AdminPanel.css";
 import { useEffect, useMemo, useRef, useState } from "react";
 import CustomerPlanForm, { CustomerEditForm } from "./CustomerPlanForm";
+import { OrderTrackingAdmin } from "./OrderTracking";
+import { CustomerPopupsAdmin } from "./CustomerPopups";
 import {
   deactivateBank,
   deactivateProduct,
@@ -39,6 +41,8 @@ import {
   Plus,
   Search,
   ShieldCheck,
+  MessageSquare,
+  Truck,
   Trash2,
   Users,
   UserCog,
@@ -612,6 +616,8 @@ export default function AdminPanel({ onLogout }) {
     { id: "products", label: "Products", icon: Package },
     { id: "add-product", label: "Add Product", icon: ImagePlus },
     { id: "payments", label: "Payment Approvals", icon: CreditCard },
+    { id: "tracking", label: "Order Tracking", icon: Truck },
+    { id: "popups", label: "Customer Popups", icon: MessageSquare },
     { id: "settings", label: "Bank Accounts", icon: Landmark },
     { id: "supervisors", label: "Supervisor Management", icon: UserCog },
     { id: "archived", label: "Archived Records", icon: Archive },
@@ -821,6 +827,10 @@ export default function AdminPanel({ onLogout }) {
                               "Create a new product"}
                             {item.id === "payments" &&
                               "Review payment records"}
+                            {item.id === "tracking" &&
+                              "Update customer order progress"}
+                            {item.id === "popups" &&
+                              "Email, document, and custom customer requests"}
                             {item.id === "settings" &&
                               "Add bank accounts for customers"}
                             {item.id === "supervisors" &&
@@ -1219,6 +1229,14 @@ export default function AdminPanel({ onLogout }) {
                 </div>
               )}
             </section>
+          )}
+
+          {section === "tracking" && (
+            <OrderTrackingAdmin customers={customers} onNotify={notify} />
+          )}
+
+          {section === "popups" && (
+            <CustomerPopupsAdmin customers={customers} onNotify={notify} />
           )}
 
           {section === "settings" && (

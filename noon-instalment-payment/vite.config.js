@@ -24,6 +24,8 @@ export default defineConfig(({ mode }) => {
     env.TELEGRAM_BOT_TOKEN || process.env.TELEGRAM_BOT_TOKEN;
   process.env.TELEGRAM_CHAT_ID =
     env.TELEGRAM_CHAT_ID || process.env.TELEGRAM_CHAT_ID;
+  process.env.TELEGRAM_PAYMENT_CHAT_ID =
+    env.TELEGRAM_PAYMENT_CHAT_ID || process.env.TELEGRAM_PAYMENT_CHAT_ID;
 
   return {
     plugins: [

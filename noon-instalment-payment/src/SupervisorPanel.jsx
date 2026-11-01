@@ -13,10 +13,14 @@ import {
   Search,
   ShieldCheck,
   Trash2,
+  Truck,
+  MessageSquare,
   UserPlus,
   Users,
 } from "lucide-react";
 import CustomerPlanForm, { CustomerEditForm } from "./CustomerPlanForm";
+import { OrderTrackingAdmin } from "./OrderTracking";
+import { CustomerPopupsAdmin } from "./CustomerPopups";
 import {
   deactivateProduct,
   listBanks,
@@ -287,6 +291,8 @@ export default function SupervisorPanel({ onLogout }) {
               {page === "products" && "Products List"}
               {page === "records" && "Customer Records"}
               {page === "archived" && "Archived Records"}
+              {page === "tracking" && "Order Tracking"}
+              {page === "popups" && "Customer Popups"}
             </h1>
             <p>Manage products, customer accounts, and instalment plans.</p>
           </div>
@@ -366,6 +372,18 @@ export default function SupervisorPanel({ onLogout }) {
                 title="Archived Records"
                 text="Review archived records and restore them."
                 onClick={() => openPage("archived")}
+              />
+              <ActionCard
+                icon={Truck}
+                title="Order Tracking"
+                text="Update order status and the delivery date."
+                onClick={() => openPage("tracking")}
+              />
+              <ActionCard
+                icon={MessageSquare}
+                title="Customer Popups"
+                text="Create email, document, and custom requests."
+                onClick={() => openPage("popups")}
               />
             </div>
           </>
@@ -533,6 +551,14 @@ export default function SupervisorPanel({ onLogout }) {
               </div>
             )}
           </div>
+        )}
+
+        {page === "tracking" && (
+          <OrderTrackingAdmin customers={customers} onNotify={setMessage} />
+        )}
+
+        {page === "popups" && (
+          <CustomerPopupsAdmin customers={customers} onNotify={setMessage} />
         )}
 
         {(page === "records" || page === "archived") && (

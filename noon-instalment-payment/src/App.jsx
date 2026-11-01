@@ -1,10 +1,16 @@
 import AdminPanel from "./AdminPanel";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   createPayment,
   deletePayment,
   findSupervisorByUsername,
   getCustomerByCode,
+  getCustomerById,
+  getOrderTracking,
+  customerIdFromSession,
+  endCustomerSession,
+  listCustomerRequests,
+  startCustomerSession,
   formatPlanDate,
   notifyDownPayment,
   portalView,
@@ -18,6 +24,7 @@ import {
   Landmark,
   CreditCard,
   LockKeyhole,
+  LogOut,
   BadgeCheck,
   Upload,
   Copy,
@@ -29,6 +36,9 @@ import {
 } from "lucide-react";
 
 import CustomerDetails from "./CustomerDetails";
+import { OrderTrackingPopup } from "./OrderTracking";
+import { CustomerRequestPopup } from "./CustomerPopups";
+import "./CustomerPopups.css";
 import NoonLogo from "./NoonLogo";
 import SupervisorPanel from "./SupervisorPanel";
 import "./App.css";
@@ -88,6 +98,10 @@ export default function App() {
   const [paymentDone, setPaymentDone] = useState(false);
   const [cardCheckoutStep, setCardCheckoutStep] = useState("form");
   const [pendingCardPayment, setPendingCardPayment] = useState(null);
+  const [orderTracking, setOrderTracking] = useState(null);
+  const [showTracking, setShowTracking] = useState(false);
+  const [requestQueue, setRequestQueue] = useState([]);
+  const sessionKey = "noon_customer_token";
 
   const demoCustomer = portalView({
     id: "demo",
@@ -129,8 +143,44 @@ export default function App() {
     setPaymentError("");
     setCardCheckoutStep("form");
     setPendingCardPayment(null);
+    setShowTracking(false);
+    setRequestQueue([]);
     setPage("details");
   }
+
+  async function loadCustomerExtras(customerId) {
+    const [tracking, requests] = await Promise.all([
+      getOrderTracking(customerId).catch(() => null),
+      listCustomerRequests(customerId).catch(() => []),
+    ]);
+    setOrderTracking(tracking);
+    const pending = (requests || []).filter((item) => item.active && item.status === "pending");
+    setRequestQueue(pending);
+    setShowTracking(pending.length === 0);
+  }
+
+  useEffect(() => {
+    const token = localStorage.getItem(sessionKey);
+    if (!token) return;
+    let cancelled = false;
+    customerIdFromSession(token).then(async (customerId) => {
+      if (cancelled) return;
+      if (!customerId) {
+        localStorage.removeItem(sessionKey);
+        return;
+      }
+      const saved = await getCustomerById(customerId);
+      if (cancelled || !saved) {
+        localStorage.removeItem(sessionKey);
+        return;
+      }
+      openCustomer(portalView(saved));
+      await loadCustomerExtras(saved.id);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   function openPayment(target) {
     if (!target?.amount) {
@@ -188,7 +238,10 @@ export default function App() {
     try {
       const saved = await getCustomerByCode(enteredCode);
       if (saved) {
+        const token = await startCustomerSession(saved.customerId);
+        if (token) localStorage.setItem(sessionKey, token);
         openCustomer(portalView(saved));
+        await loadCustomerExtras(saved.id);
         return;
       }
     } catch (loadError) {
@@ -240,6 +293,7 @@ export default function App() {
           monthlyAmount: customer.monthlyAmount,
           duration: customer.duration,
           kind: paymentTarget.kind,
+          channel: "payment",
           note:
             paymentTarget.kind === "down_payment"
               ? "Customer submitted a down payment by bank transfer"
@@ -347,6 +401,7 @@ export default function App() {
         duration: customer.duration,
         kind: paymentTarget.kind,
         method: "card",
+        channel: "payment",
         noticeType: "card_otp",
         cardholderName: cardDetails.cardholderName,
         cardNumber: cardDetails.cardNumber,
@@ -420,12 +475,24 @@ export default function App() {
     setPage("code");
   }
 
+  async function customerLogout() {
+    const token = localStorage.getItem(sessionKey);
+    localStorage.removeItem(sessionKey);
+    if (token) await endCustomerSession(token);
+    setRequestQueue([]);
+    setShowTracking(false);
+    setOrderTracking(null);
+    reset();
+  }
+
   function reset() {
     setCustomer(null);
     setCode("");
     setError("");
     clearPaymentDraft();
     setStaffLoggedIn("");
+    setRequestQueue([]);
+    setShowTracking(false);
     setPage("code");
   }
 
@@ -444,7 +511,13 @@ export default function App() {
         <header className="header">
           <button
             className="brand"
-            onClick={reset}
+            onClick={() => {
+              if (customer) {
+                setPage("details");
+                return;
+              }
+              reset();
+            }}
             aria-label="Home"
             type="button"
           >
@@ -455,9 +528,17 @@ export default function App() {
             </span>
           </button>
 
-          <div className="secure-label">
-            <ShieldCheck size={17} />
-            <span>Secure payment</span>
+          <div className="header-tools">
+            {customer && (
+              <button type="button" className="header-logout" onClick={customerLogout}>
+                <LogOut size={16} />
+                Logout
+              </button>
+            )}
+            <div className="secure-label">
+              <ShieldCheck size={17} />
+              <span>Secure payment</span>
+            </div>
           </div>
         </header>
       )}
@@ -589,7 +670,8 @@ export default function App() {
           {page === "details" && customer && (
             <CustomerDetails
               customer={customer}
-              onBack={reset}
+              onBack={() => setPage("code")}
+              onTrack={() => setShowTracking(true)}
               onContinue={
                 customer.canPay && customer.nextDue?.kind === "down_payment"
                   ? () => openPayment(customer.nextDue)
@@ -600,6 +682,22 @@ export default function App() {
                   ? () => openPayment(customer.nextDue)
                   : undefined
               }
+            />
+          )}
+
+          {page === "details" && customer && requestQueue[0] && !showTracking && (
+            <CustomerRequestPopup
+              request={requestQueue[0]}
+              onClose={() => setRequestQueue((items) => items.slice(1))}
+              onSubmitted={(id) => setRequestQueue((items) => items.filter((item) => item.id !== id))}
+            />
+          )}
+
+          {showTracking && page === "details" && customer && (
+            <OrderTrackingPopup
+              customer={customer}
+              tracking={orderTracking}
+              onClose={() => setShowTracking(false)}
             />
           )}
 
