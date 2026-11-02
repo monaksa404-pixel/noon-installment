@@ -86,7 +86,7 @@ function CopyLine({ label, value }) {
 export default function App() {
   const [code, setCode] = useState("");
   const [customer, setCustomer] = useState(null);
-  const [page, setPage] = useState("code");
+  const [page, setPage] = useState(() => (localStorage.getItem("noon_customer_token") ? "restore" : "code"));
   const [error, setError] = useState("");
   const [method, setMethod] = useState("");
   const [receiptName, setReceiptName] = useState("");
@@ -102,6 +102,9 @@ export default function App() {
   const [showTracking, setShowTracking] = useState(false);
   const [requestQueue, setRequestQueue] = useState([]);
   const sessionKey = "noon_customer_token";
+  const pageKey = "noon_customer_page";
+  const hadSession = Boolean(localStorage.getItem(sessionKey));
+  const [booting, setBooting] = useState(hadSession);
 
   const demoCustomer = portalView({
     id: "demo",
@@ -132,23 +135,37 @@ export default function App() {
     createdAt: "2026-10-22T12:00:00Z",
   });
 
-  function openCustomer(nextCustomer) {
+  function rememberPage(nextPage) {
+    if (nextPage === "details" || nextPage === "payment" || nextPage === "code") {
+      sessionStorage.setItem(pageKey, nextPage);
+    }
+  }
+
+  function openCustomer(nextCustomer, nextPage = "details") {
     setCustomer(nextCustomer);
     setStaffLoggedIn("");
     setMethod("");
     setReceiptName("");
     setReceiptFile(null);
-    setPaymentTarget(null);
     setPaymentDone(false);
     setPaymentError("");
     setCardCheckoutStep("form");
     setPendingCardPayment(null);
     setShowTracking(false);
     setRequestQueue([]);
-    setPage("details");
+    if (nextPage === "payment" && nextCustomer?.nextDue) {
+      setPaymentTarget(nextCustomer.nextDue);
+      setPage("payment");
+      rememberPage("payment");
+      return;
+    }
+    setPaymentTarget(null);
+    const pageName = nextPage === "code" ? "code" : "details";
+    setPage(pageName);
+    rememberPage(pageName);
   }
 
-  async function loadCustomerExtras(customerId) {
+  async function loadCustomerExtras(customerId, { autoOpen = false } = {}) {
     const [tracking, requests] = await Promise.all([
       getOrderTracking(customerId).catch(() => null),
       listCustomerRequests(customerId).catch(() => []),
@@ -156,7 +173,8 @@ export default function App() {
     setOrderTracking(tracking);
     const pending = (requests || []).filter((item) => item.active && item.status === "pending");
     setRequestQueue(pending);
-    setShowTracking(pending.length === 0);
+    const popupAllowed = !tracking || tracking.showPopup !== false;
+    setShowTracking(autoOpen && popupAllowed && pending.length === 0);
   }
 
   useEffect(() => {
@@ -167,15 +185,27 @@ export default function App() {
       if (cancelled) return;
       if (!customerId) {
         localStorage.removeItem(sessionKey);
+        sessionStorage.removeItem(pageKey);
+        setPage("code");
+        setBooting(false);
         return;
       }
       const saved = await getCustomerById(customerId);
       if (cancelled || !saved) {
         localStorage.removeItem(sessionKey);
+        sessionStorage.removeItem(pageKey);
+        setPage("code");
+        setBooting(false);
         return;
       }
-      openCustomer(portalView(saved));
-      await loadCustomerExtras(saved.id);
+      const savedPage = sessionStorage.getItem(pageKey) || "details";
+      openCustomer(portalView(saved), savedPage);
+      await loadCustomerExtras(saved.id, { autoOpen: false });
+      if (!cancelled) setBooting(false);
+    }).catch(() => {
+      if (cancelled) return;
+      setPage("code");
+      setBooting(false);
     });
     return () => {
       cancelled = true;
@@ -197,6 +227,7 @@ export default function App() {
     setPendingCardPayment(null);
     setError("");
     setPage("payment");
+    rememberPage("payment");
   }
 
   async function handleContinue(e) {
@@ -240,8 +271,8 @@ export default function App() {
       if (saved) {
         const token = await startCustomerSession(saved.customerId);
         if (token) localStorage.setItem(sessionKey, token);
-        openCustomer(portalView(saved));
-        await loadCustomerExtras(saved.id);
+        openCustomer(portalView(saved), "details");
+        await loadCustomerExtras(saved.id, { autoOpen: true });
         return;
       }
     } catch (loadError) {
@@ -478,6 +509,7 @@ export default function App() {
   async function customerLogout() {
     const token = localStorage.getItem(sessionKey);
     localStorage.removeItem(sessionKey);
+    sessionStorage.removeItem(pageKey);
     if (token) await endCustomerSession(token);
     setRequestQueue([]);
     setShowTracking(false);
@@ -502,6 +534,7 @@ export default function App() {
     setPaymentDone(false);
     setPaymentError("");
     setPage("details");
+    rememberPage("details");
   }
 
   return (
@@ -529,22 +562,21 @@ export default function App() {
           </button>
 
           <div className="header-tools">
-            {customer && (
-              <button type="button" className="header-logout" onClick={customerLogout}>
-                <LogOut size={16} />
-                Logout
-              </button>
-            )}
             <div className="secure-label">
               <ShieldCheck size={17} />
               <span>Secure payment</span>
             </div>
+            {customer && (
+              <button type="button" className="header-logout" onClick={customerLogout} aria-label="Logout" title="Logout">
+                <LogOut size={18} />
+              </button>
+            )}
           </div>
         </header>
       )}
 
       {/* HERO */}
-{page === "code" && (
+{!booting && page === "code" && (
         <section className="hero">
           <div className="hero-content">
             <div className="eyebrow">
@@ -670,8 +702,11 @@ export default function App() {
           {page === "details" && customer && (
             <CustomerDetails
               customer={customer}
-              onBack={() => setPage("code")}
-              onTrack={() => setShowTracking(true)}
+              onBack={() => {
+                rememberPage("code");
+                setPage("code");
+              }}
+              onTrack={orderTracking?.showPopup === false ? undefined : () => setShowTracking(true)}
               onContinue={
                 customer.canPay && customer.nextDue?.kind === "down_payment"
                   ? () => openPayment(customer.nextDue)
@@ -693,7 +728,7 @@ export default function App() {
             />
           )}
 
-          {showTracking && page === "details" && customer && (
+          {showTracking && page === "details" && customer && orderTracking?.showPopup !== false && (
             <OrderTrackingPopup
               customer={customer}
               tracking={orderTracking}

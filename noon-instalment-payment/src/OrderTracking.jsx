@@ -12,7 +12,7 @@ import {
 import { getOrderTracking, saveOrderTracking } from "./lib/data.js";
 import "./OrderTracking.css";
 
-export const ORDER_STEPS = [
+const JOURNEY_STEPS = [
   {
     key: "confirmed",
     label: "Confirmed",
@@ -48,14 +48,9 @@ export const ORDER_STEPS = [
     pending: "Waiting for delivery",
     Icon: Home,
   },
-  {
-    key: "rejected",
-    label: "Rejected",
-    done: "This order was rejected",
-    pending: "Not rejected",
-    Icon: XCircle,
-  },
 ];
+
+export const ORDER_STEPS = JOURNEY_STEPS;
 
 export const emptyTracking = {
   confirmed: false,
@@ -64,8 +59,10 @@ export const emptyTracking = {
   dispatched: false,
   delivered: false,
   rejected: false,
+  rejectionReason: "",
   deliveryDate: "",
   showDeliveryDate: false,
+  showPopup: true,
 };
 
 function deliveryLabel(value) {
@@ -130,12 +127,12 @@ export function OrderTrackingPopup({ customer, tracking, onClose }) {
           </div>
 
           <ol className="ot-steps">
-            {ORDER_STEPS.map((step, index) => {
+            {JOURNEY_STEPS.map((step, index) => {
               const done = Boolean(status[step.key]);
               const Icon = step.Icon;
               return (
                 <li key={step.key} className={done ? "is-done" : "is-pending"}>
-                  {index < ORDER_STEPS.length - 1 && <span className="ot-line" />}
+                  {index < JOURNEY_STEPS.length - 1 && <span className="ot-line" />}
                   <span className="ot-step-icon">
                     {done ? <Check size={16} /> : <Icon size={16} />}
                   </span>
@@ -148,6 +145,18 @@ export function OrderTrackingPopup({ customer, tracking, onClose }) {
               );
             })}
           </ol>
+
+          {status.rejected && (
+            <div className="ot-rejected">
+              <span className="ot-step-icon">
+                <XCircle size={16} />
+              </span>
+              <div>
+                <strong>Rejected</strong>
+                <p>{status.rejectionReason || "This order was rejected"}</p>
+              </div>
+            </div>
+          )}
 
           {status.showDeliveryDate && status.deliveryDate && (
             <div className="ot-delivery">
@@ -237,8 +246,19 @@ export function OrderTrackingAdmin({ customers, onNotify }) {
               </div>
             </div>
 
+            <label className="ot-admin-show">
+              <input
+                type="checkbox"
+                checked={form.showPopup !== false}
+                onChange={() =>
+                  setForm((current) => ({ ...current, showPopup: current.showPopup === false }))
+                }
+              />
+              Show tracking popup to customer
+            </label>
+
             <div className="ot-admin-checks">
-              {ORDER_STEPS.map((step) => (
+              {JOURNEY_STEPS.map((step) => (
                 <label key={step.key}>
                   <input
                     type="checkbox"
@@ -248,7 +268,28 @@ export function OrderTrackingAdmin({ customers, onNotify }) {
                   {step.label}
                 </label>
               ))}
+              <label>
+                <input
+                  type="checkbox"
+                  checked={Boolean(form.rejected)}
+                  onChange={() => toggle("rejected")}
+                />
+                Rejected
+              </label>
             </div>
+
+            {form.rejected && (
+              <label>
+                Rejection reason
+                <textarea
+                  value={form.rejectionReason || ""}
+                  onChange={(event) =>
+                    setForm((current) => ({ ...current, rejectionReason: event.target.value }))
+                  }
+                  placeholder="Reason shown to the customer"
+                />
+              </label>
+            )}
 
             <label>
               Expected delivery date

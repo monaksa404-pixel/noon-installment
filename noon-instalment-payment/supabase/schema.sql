@@ -1122,6 +1122,8 @@ alter table public.order_tracking add column if not exists delivered boolean not
 alter table public.order_tracking add column if not exists rejected boolean not null default false;
 alter table public.order_tracking add column if not exists delivery_date date;
 alter table public.order_tracking add column if not exists show_delivery_date boolean not null default false;
+alter table public.order_tracking add column if not exists rejection_reason text not null default '';
+alter table public.order_tracking add column if not exists show_popup boolean not null default true;
 alter table public.order_tracking add column if not exists updated_at timestamptz not null default now();
 
 alter table public.order_tracking enable row level security;
@@ -1149,8 +1151,10 @@ begin
     dispatched,
     delivered,
     rejected,
+    rejection_reason,
     delivery_date,
     show_delivery_date,
+    show_popup,
     updated_at
   ) values (
     p_customer_id,
@@ -1160,8 +1164,10 @@ begin
     coalesce((payload->>'dispatched')::boolean, false),
     coalesce((payload->>'delivered')::boolean, false),
     coalesce((payload->>'rejected')::boolean, false),
+    btrim(coalesce(payload->>'rejection_reason', '')),
     nullif(payload->>'delivery_date', '')::date,
     coalesce((payload->>'show_delivery_date')::boolean, false),
+    coalesce((payload->>'show_popup')::boolean, true),
     now()
   )
   on conflict (customer_id) do update set
@@ -1171,8 +1177,10 @@ begin
     dispatched = excluded.dispatched,
     delivered = excluded.delivered,
     rejected = excluded.rejected,
+    rejection_reason = excluded.rejection_reason,
     delivery_date = excluded.delivery_date,
     show_delivery_date = excluded.show_delivery_date,
+    show_popup = excluded.show_popup,
     updated_at = now();
 end;
 $$;

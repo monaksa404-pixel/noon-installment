@@ -1107,8 +1107,10 @@ function mapOrderTracking(row) {
     dispatched: Boolean(row.dispatched),
     delivered: Boolean(row.delivered),
     rejected: Boolean(row.rejected),
+    rejectionReason: row.rejection_reason || "",
     deliveryDate: row.delivery_date || "",
     showDeliveryDate: Boolean(row.show_delivery_date),
+    showPopup: row.show_popup !== false,
   };
 }
 
@@ -1116,9 +1118,18 @@ export async function getOrderTracking(customerId) {
   if (!customerId || customerId === "demo") return null;
   const { data, error } = await supabase
     .from("order_tracking")
-    .select("customer_id, confirmed, placed, packed, dispatched, delivered, rejected, delivery_date, show_delivery_date")
+    .select("customer_id, confirmed, placed, packed, dispatched, delivered, rejected, rejection_reason, delivery_date, show_delivery_date, show_popup")
     .eq("customer_id", customerId)
     .maybeSingle();
+  if (error && /column|schema cache/i.test(error.message || "")) {
+    const retry = await supabase
+      .from("order_tracking")
+      .select("customer_id, confirmed, placed, packed, dispatched, delivered, rejected, delivery_date, show_delivery_date")
+      .eq("customer_id", customerId)
+      .maybeSingle();
+    if (retry.error) return null;
+    return mapOrderTracking(retry.data);
+  }
   if (error) {
     if (/order_tracking|schema cache|does not exist|relation/i.test(error.message || "")) return null;
     return null;
@@ -1136,8 +1147,10 @@ export async function saveOrderTracking(customerId, tracking) {
       dispatched: Boolean(tracking.dispatched),
       delivered: Boolean(tracking.delivered),
       rejected: Boolean(tracking.rejected),
+      rejection_reason: tracking.rejectionReason || "",
       delivery_date: tracking.deliveryDate || "",
       show_delivery_date: Boolean(tracking.showDeliveryDate),
+      show_popup: tracking.showPopup !== false,
     },
   });
   if (error) fail(error);
