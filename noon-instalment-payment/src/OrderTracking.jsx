@@ -8,6 +8,7 @@ import {
   X,
   XCircle,
   CalendarDays,
+  Wallet,
 } from "lucide-react";
 import { getOrderTracking, saveOrderTracking } from "./lib/data.js";
 import "./OrderTracking.css";
@@ -78,6 +79,23 @@ function deliveryLabel(value) {
 export function OrderTrackingPopup({ customer, tracking, onClose }) {
   const status = tracking || emptyTracking;
   const product = customer?.products?.[0];
+  const downPaid = Boolean(customer?.paidDownPayment);
+  const steps = [
+    {
+      key: "down_payment",
+      label: downPaid ? "Down payment paid" : "Awaiting for down payment",
+      detail: downPaid ? "Down payment received" : "Waiting for down payment",
+      done: downPaid,
+      Icon: Wallet,
+    },
+    ...JOURNEY_STEPS.map((step) => ({
+      key: step.key,
+      label: step.label,
+      detail: status[step.key] ? step.done : step.pending,
+      done: Boolean(status[step.key]),
+      Icon: step.Icon,
+    })),
+  ];
   const progress = status.rejected
     ? "Rejected"
     : status.delivered
@@ -127,20 +145,19 @@ export function OrderTrackingPopup({ customer, tracking, onClose }) {
           </div>
 
           <ol className="ot-steps">
-            {JOURNEY_STEPS.map((step, index) => {
-              const done = Boolean(status[step.key]);
+            {steps.map((step, index) => {
               const Icon = step.Icon;
               return (
-                <li key={step.key} className={done ? "is-done" : "is-pending"}>
-                  {index < JOURNEY_STEPS.length - 1 && <span className="ot-line" />}
+                <li key={step.key} className={step.done ? "is-done" : "is-pending"}>
+                  {index < steps.length - 1 && <span className="ot-line" />}
                   <span className="ot-step-icon">
-                    {done ? <Check size={16} /> : <Icon size={16} />}
+                    {step.done ? <Check size={14} /> : <Icon size={14} />}
                   </span>
                   <div>
                     <strong>{step.label}</strong>
-                    <p>{done ? step.done : step.pending}</p>
+                    <p>{step.detail}</p>
                   </div>
-                  <span className="ot-badge">{done ? "Done" : "Pending"}</span>
+                  <span className="ot-badge">{step.done ? "Done" : "Pending"}</span>
                 </li>
               );
             })}
