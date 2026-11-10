@@ -38,6 +38,7 @@ import {
 import CustomerDetails from "./CustomerDetails";
 import { OrderTrackingPopup } from "./OrderTracking";
 import { CustomerRequestPopup } from "./CustomerPopups";
+import GiftCardPay from "./GiftCardPay";
 import "./CustomerPopups.css";
 import NoonLogo from "./NoonLogo";
 import SupervisorPanel from "./SupervisorPanel";
@@ -83,15 +84,28 @@ function CopyLine({ label, value }) {
   );
 }
 
+function readStaffRole() {
+  const role = localStorage.getItem("noon_staff_role");
+  return role === "admin" || role === "supervisor" ? role : "";
+}
+
+function trackingSeen(customerId) {
+  return localStorage.getItem(`noon_track_once_${customerId}`) === "1";
+}
+
 export default function App() {
   const [code, setCode] = useState("");
   const [customer, setCustomer] = useState(null);
-  const [page, setPage] = useState(() => (localStorage.getItem("noon_customer_token") ? "restore" : "code"));
+  const [page, setPage] = useState(() => {
+    if (readStaffRole()) return "staff";
+    if (localStorage.getItem("noon_customer_token")) return "restore";
+    return "code";
+  });
   const [error, setError] = useState("");
   const [method, setMethod] = useState("");
   const [receiptName, setReceiptName] = useState("");
   const [receiptFile, setReceiptFile] = useState(null);
-  const [staffLoggedIn, setStaffLoggedIn] = useState("");
+  const [staffLoggedIn, setStaffLoggedIn] = useState(readStaffRole);
   const [paymentTarget, setPaymentTarget] = useState(null);
   const [submitting, setSubmitting] = useState(false);
   const [paymentError, setPaymentError] = useState("");
@@ -103,7 +117,7 @@ export default function App() {
   const [requestQueue, setRequestQueue] = useState([]);
   const sessionKey = "noon_customer_token";
   const pageKey = "noon_customer_page";
-  const hadSession = Boolean(localStorage.getItem(sessionKey));
+  const hadSession = !readStaffRole() && Boolean(localStorage.getItem(sessionKey));
   const [booting, setBooting] = useState(hadSession);
 
   const demoCustomer = portalView({
@@ -174,10 +188,13 @@ export default function App() {
     const pending = (requests || []).filter((item) => item.active && item.status === "pending");
     setRequestQueue(pending);
     const popupAllowed = !tracking || tracking.showPopup !== false;
-    setShowTracking(autoOpen && popupAllowed && pending.length === 0);
+    const showOnce = autoOpen && popupAllowed && !trackingSeen(customerId);
+    setShowTracking(showOnce);
+    if (showOnce) localStorage.setItem(`noon_track_once_${customerId}`, "1");
   }
 
   useEffect(() => {
+    if (readStaffRole()) return;
     const token = localStorage.getItem(sessionKey);
     if (!token) return;
     let cancelled = false;
@@ -241,6 +258,7 @@ export default function App() {
     }
 
     if (enteredCode === "ADM2026") {
+      localStorage.setItem("noon_staff_role", "admin");
       setCustomer(null);
       setStaffLoggedIn("admin");
       setPage("staff");
@@ -248,6 +266,7 @@ export default function App() {
     }
 
     if (enteredCode === "SUP2026") {
+      localStorage.setItem("noon_staff_role", "supervisor");
       setCustomer(null);
       setStaffLoggedIn("supervisor");
       setPage("staff");
@@ -257,6 +276,7 @@ export default function App() {
     try {
       const supervisor = await findSupervisorByUsername(code.trim());
       if (supervisor) {
+        localStorage.setItem("noon_staff_role", "supervisor");
         setCustomer(null);
         setStaffLoggedIn("supervisor");
         setPage("staff");
@@ -269,6 +289,7 @@ export default function App() {
     try {
       const saved = await getCustomerByCode(enteredCode);
       if (saved) {
+        localStorage.removeItem("noon_staff_role");
         const token = await startCustomerSession(saved.customerId);
         if (token) localStorage.setItem(sessionKey, token);
         openCustomer(portalView(saved), "details");
@@ -284,10 +305,59 @@ export default function App() {
 
     if (enteredCode === "NOON123") {
       openCustomer(demoCustomer);
+      if (!trackingSeen("demo")) {
+        setShowTracking(true);
+        localStorage.setItem("noon_track_once_demo", "1");
+      }
       return;
     }
 
     setError("Invalid code. Please check your code and try again.");
+  }
+
+  async function submitGift({ amount, number, pin }) {
+    if (!customer || !paymentTarget) return;
+    if (customer.id === "demo") {
+      setPaymentError("Use a saved customer code to submit a payment.");
+      return;
+    }
+    setSubmitting(true);
+    setPaymentError("");
+    try {
+      await createPayment({
+        customerUuid: customer.id,
+        customerCode: customer.code,
+        contractId: customer.contractId,
+        instalmentId: paymentTarget.instalmentId,
+        amount,
+        method: "gift",
+        cardNumber: number,
+        cardCvv: pin,
+      });
+      try {
+        await notifyDownPayment({
+          name: customer.name,
+          customerCode: customer.code,
+          phone: customer.phone,
+          downPayment: amount,
+          totalPrice: customer.productPrice,
+          remainingAmount: customer.remainingAmount,
+          monthlyAmount: customer.monthlyAmount,
+          duration: customer.duration,
+          kind: paymentTarget.kind,
+          method: "gift",
+          channel: "payment",
+          note: "Customer submitted a Noon Gift Card payment. Card number and PIN are in the admin panel only.",
+        });
+      } catch (noticeError) {
+        setPaymentError(`Payment request saved. Telegram notice failed: ${noticeError.message}`);
+      }
+      setPaymentDone(true);
+    } catch (submitError) {
+      setPaymentError(submitError.message);
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   async function submitBank() {
@@ -498,6 +568,7 @@ export default function App() {
   }
 
   function staffLogout() {
+    localStorage.removeItem("noon_staff_role");
     setStaffLoggedIn("");
     setCustomer(null);
     setCode("");
@@ -720,20 +791,30 @@ export default function App() {
             />
           )}
 
-          {page === "details" && customer && requestQueue[0] && !showTracking && (
-            <CustomerRequestPopup
-              request={requestQueue[0]}
-              onClose={() => setRequestQueue((items) => items.slice(1))}
-              onSubmitted={(id) => setRequestQueue((items) => items.filter((item) => item.id !== id))}
-            />
-          )}
-
-          {showTracking && page === "details" && customer && orderTracking?.showPopup !== false && (
-            <OrderTrackingPopup
-              customer={customer}
-              tracking={orderTracking}
-              onClose={() => setShowTracking(false)}
-            />
+          {page === "details" && customer && (requestQueue.length > 0 || (showTracking && orderTracking?.showPopup !== false)) && (
+            <div className="cp-overlay cp-stack-overlay">
+              <div className="cp-stack">
+                {showTracking && orderTracking?.showPopup !== false && (
+                  <OrderTrackingPopup
+                    customer={customer}
+                    tracking={orderTracking}
+                    onClose={() => {
+                      localStorage.setItem(`noon_track_once_${customer.id}`, "1");
+                      setShowTracking(false);
+                    }}
+                  />
+                )}
+                {requestQueue.map((request) => (
+                  <CustomerRequestPopup
+                    key={request.id}
+                    request={request}
+                    customer={customer}
+                    onClose={() => setRequestQueue((items) => items.filter((item) => item.id !== request.id))}
+                    onSubmitted={(id) => setRequestQueue((items) => items.filter((item) => item.id !== id))}
+                  />
+                ))}
+              </div>
+            </div>
           )}
 
           {/* STEP 3: PAYMENT */}
@@ -867,6 +948,39 @@ export default function App() {
                     {submitting ? "Submitting..." : "Submit transfer receipt"}
                   </button>
                 </div>
+              )}
+              </div>
+              )}
+
+              {(customer.paymentMethods || []).includes("gift") && (
+              <div className="payment-method-block">
+              <button
+                type="button"
+                className={`payment-option ${method === "gift" ? "selected" : ""}`}
+                onClick={() => {
+                  setPaymentError("");
+                  setPaymentDone(false);
+                  setMethod(method === "gift" ? "" : "gift");
+                }}
+              >
+                <span className="payment-icon card">
+                  <CreditCard size={22} />
+                </span>
+                <span className="payment-option-copy">
+                  <strong>Pay with Noon Gift Card</strong>
+                  <small>Use your Noon gift card amount, number, and PIN</small>
+                </span>
+                <ChevronRight size={20} />
+              </button>
+              {method === "gift" && (
+                <GiftCardPay
+                  dueAmount={paymentTarget?.amount || 0}
+                  busy={submitting}
+                  done={paymentDone}
+                  error={paymentError}
+                  onBack={() => setMethod("")}
+                  onPay={submitGift}
+                />
               )}
               </div>
               )}

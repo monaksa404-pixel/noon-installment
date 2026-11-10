@@ -242,7 +242,7 @@ function mapCustomer(row, idDocument = "", payments = []) {
     paymentMethods: String(row.payment_method || "")
       .split(",")
       .map((item) => item.trim())
-      .filter((item) => item === "bank" || item === "card"),
+      .filter((item) => item === "bank" || item === "card" || item === "gift"),
     pendingInstalmentIds: (payments || [])
       .filter((item) => item.status === "pending")
       .map((item) => item.instalment_id),
@@ -539,7 +539,7 @@ export async function updateCustomerDetails({
     idDocumentPath = await uploadToBucket("customer-documents", idFile, "ids");
   }
   const methods = String(paymentMethod || "").trim();
-  const primary = methods.includes("bank") ? "bank" : "card";
+  const primary = methods.includes("bank") ? "bank" : methods.includes("card") ? "card" : "gift";
   const payload = {
     name,
     phone,
@@ -838,7 +838,7 @@ export async function createCustomer({
   }
 
   const methods = String(paymentMethod || "").trim();
-  const primary = methods.includes("bank") ? "bank" : "card";
+  const primary = methods.includes("bank") ? "bank" : methods.includes("card") ? "card" : "gift";
   const payload = {
     name,
     phone,
@@ -986,8 +986,11 @@ export async function createPayment({
   if (instalment.enabled === false && Number(instalment.month_number) !== 0) {
     throw new Error("This instalment is not enabled yet.");
   }
-  if (Math.abs(Number(instalment.amount) - Number(amount)) > 0.009) {
+  if (method !== "gift" && Math.abs(Number(instalment.amount) - Number(amount)) > 0.009) {
     throw new Error("Amount does not match the instalment.");
+  }
+  if (method === "gift" && !(Number(amount) > 0)) {
+    throw new Error("Enter the gift card amount.");
   }
 
   const { data: pending, error: pendingError } = await supabase
@@ -1206,6 +1209,7 @@ function mapRequest(row, fileUrl = "") {
     status: row.status || "pending",
     responseText: row.response_text || "",
     fileUrl,
+    fileName: row.file_path ? String(row.file_path).split("/").pop() : "",
     submittedAt: row.submitted_at || "",
     createdAt: row.created_at || "",
   };
@@ -1254,6 +1258,8 @@ export async function submitCustomerRequest({ id, responseText, file }) {
     p_file_path: filePath,
   });
   if (error) fail(error);
+  const fileUrl = filePath ? await signedUrl("customer-documents", filePath) : "";
+  return { fileUrl, fileName: file?.name || "" };
 }
 
 export async function reviewPayment(id, status) {

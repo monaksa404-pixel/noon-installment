@@ -1,10 +1,27 @@
 import { useEffect, useState } from "react";
 import { Mail, FileCheck2, MessageSquare, X, Upload } from "lucide-react";
-import { listCustomerRequests, saveCustomerRequest, submitCustomerRequest } from "./lib/data.js";
+import { listCustomerRequests, notifyDownPayment, saveCustomerRequest, submitCustomerRequest } from "./lib/data.js";
 import "./CustomerPopups.css";
 
 const EMAIL_MESSAGE =
   "Please add your email address. We will keep you updated about your instalment plan, payment status and important information through email.";
+
+async function downloadFile(url, name) {
+  const response = await fetch(url);
+  if (!response.ok) {
+    window.open(url, "_blank", "noopener");
+    return;
+  }
+  const blob = await response.blob();
+  const objectUrl = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = objectUrl;
+  link.download = name || "document";
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(objectUrl);
+}
 
 function when(value) {
   const date = new Date(value);
@@ -18,7 +35,7 @@ function when(value) {
   });
 }
 
-export function CustomerRequestPopup({ request, onClose, onSubmitted }) {
+export function CustomerRequestPopup({ request, customer, onClose, onSubmitted }) {
   const [email, setEmail] = useState("");
   const [response, setResponse] = useState("");
   const [file, setFile] = useState(null);
@@ -53,11 +70,23 @@ export function CustomerRequestPopup({ request, onClose, onSubmitted }) {
     setBusy(true);
     setError("");
     try {
-      await submitCustomerRequest({
+      const responseText = request.kind === "email" ? email.trim() : response.trim();
+      const saved = await submitCustomerRequest({
         id: request.id,
-        responseText: request.kind === "email" ? email.trim() : response.trim(),
+        responseText,
         file: request.kind === "document" ? file : null,
       });
+      notifyDownPayment({
+        noticeType: "customer_submission",
+        name: customer?.name || "",
+        customerCode: customer?.code || customer?.customerId || "",
+        kind: request.kind,
+        title: request.title || "",
+        documentName: request.documentName || "",
+        responseText,
+        fileName: saved?.fileName || file?.name || "",
+        fileUrl: saved?.fileUrl || "",
+      }).catch(() => {});
       onSubmitted(request.id);
     } catch (submitError) {
       setError(submitError.message || "Could not submit.");
@@ -66,7 +95,6 @@ export function CustomerRequestPopup({ request, onClose, onSubmitted }) {
   }
 
   return (
-    <div className="cp-overlay" role="dialog" aria-modal="true">
       <form className="cp-card" onSubmit={submit}>
         <header className="cp-head">
           <span className="cp-mark"><Icon size={18} /></span>
@@ -141,7 +169,6 @@ export function CustomerRequestPopup({ request, onClose, onSubmitted }) {
         </button>
         {request.kind === "email" && <p className="cp-note">Your information will be kept private.</p>}
       </form>
-    </div>
   );
 }
 
@@ -295,7 +322,11 @@ export function CustomerPopupsAdmin({ customers, onNotify }) {
               {row.documentName && <p>Document: {row.documentName}</p>}
               {row.responseText && <p>Response: {row.responseText}</p>}
               <p>{when(row.submittedAt || row.createdAt)}</p>
-              {row.fileUrl && <a href={row.fileUrl} target="_blank" rel="noreferrer">View document</a>}
+              {row.fileUrl && (
+                <button type="button" onClick={() => downloadFile(row.fileUrl, row.fileName || row.documentName || "document")}>
+                  Download file
+                </button>
+              )}
               <div>
                 <button type="button" onClick={() => setForm({ id: row.id, kind: row.kind, title: row.title, message: row.message, documentName: row.documentName, active: row.active })}>Edit</button>
                 <button type="button" onClick={() => updateRow(row, { active: !row.active })}>{row.active ? "Deactivate" : "Activate"}</button>

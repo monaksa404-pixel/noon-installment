@@ -633,12 +633,21 @@ export default function SupervisorPanel({ onLogout }) {
                     <dd>{formatMoney(selectedCustomer.monthlyAmount)}</dd>
                     <dt>Payment Method</dt>
                     <dd>
-                      {selectedCustomer.paymentMethods?.includes("bank") &&
-                      selectedCustomer.paymentMethods?.includes("card")
-                        ? "Bank Transfer, Credit/Debit Card"
-                        : selectedCustomer.paymentMethod === "card"
-                          ? "Credit/Debit Card"
-                          : "Bank Transfer"}
+                      {(selectedCustomer.paymentMethods?.length
+                        ? selectedCustomer.paymentMethods
+                        : [selectedCustomer.paymentMethod]
+                      )
+                        .map((item) =>
+                          item === "card"
+                            ? "Credit/Debit Card"
+                            : item === "gift"
+                              ? "Noon Gift Card"
+                              : item === "bank"
+                                ? "Bank Transfer"
+                                : ""
+                        )
+                        .filter(Boolean)
+                        .join(", ") || "Not selected"}
                     </dd>
                     <dt>Bank Account</dt>
                     <dd>

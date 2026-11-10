@@ -8,6 +8,29 @@
   background: rgba(0, 0, 0, 0.45);
 }
 
+.cp-stack-overlay {
+  align-items: start;
+  overflow: auto;
+}
+
+.cp-stack {
+  width: min(100%, 440px);
+  display: grid;
+  gap: 14px;
+  margin: 12px auto;
+}
+
+.cp-stack .ot-overlay {
+  position: static;
+  display: block;
+  padding: 0;
+  background: transparent;
+}
+
+.cp-stack .ot-sheet {
+  max-height: none;
+}
+
 .cp-card {
   width: min(100%, 420px);
   max-height: min(92vh, 760px);

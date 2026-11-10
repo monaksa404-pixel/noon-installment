@@ -27,6 +27,7 @@ export default function CustomerPlanForm({
   const [duration, setDuration] = useState("12");
   const [payBank, setPayBank] = useState(true);
   const [payCard, setPayCard] = useState(false);
+  const [payGift, setPayGift] = useState(false);
   const [bankAccountId, setBankAccountId] = useState("");
   const [message, setMessage] = useState("");
   const [saving, setSaving] = useState(false);
@@ -44,7 +45,7 @@ export default function CustomerPlanForm({
     () => catalog.filter((product) => selected.includes(product.id)),
     [catalog, selected]
   );
-  const paymentMethod = [payBank && "bank", payCard && "card"].filter(Boolean).join(",");
+  const paymentMethod = [payBank && "bank", payCard && "card", payGift && "gift"].filter(Boolean).join(",");
   const total = chosen.reduce((sum, product) => sum + Number(product.price || 0), 0);
   const deposit = Number(downPayment || 0);
   const months = Number(duration || 0);
@@ -200,6 +201,14 @@ export default function CustomerPlanForm({
             />
             Credit/Debit Card
           </label>
+          <label className="plan-check">
+            <input
+              type="checkbox"
+              checked={payGift}
+              onChange={(e) => setPayGift(e.target.checked)}
+            />
+            Noon Gift Card
+          </label>
         </div>
         <label className={fullClass}>
           ID document *
@@ -336,6 +345,7 @@ export function CustomerEditForm({ customer, products, onCancel, onSaved }) {
     !customer.paymentMethods?.length || customer.paymentMethods.includes("bank")
   );
   const [payCard, setPayCard] = useState(Boolean(customer.paymentMethods?.includes("card")));
+  const [payGift, setPayGift] = useState(Boolean(customer.paymentMethods?.includes("gift")));
   const [selected, setSelected] = useState(
     (customer.products || []).map((product) => product.id).filter(Boolean)
   );
@@ -345,7 +355,7 @@ export function CustomerEditForm({ customer, products, onCancel, onSaved }) {
   const [productQuery, setProductQuery] = useState("");
   const [message, setMessage] = useState("");
   const [saving, setSaving] = useState(false);
-  const paymentMethod = [payBank && "bank", payCard && "card"].filter(Boolean).join(",");
+  const paymentMethod = [payBank && "bank", payCard && "card", payGift && "gift"].filter(Boolean).join(",");
   const visibleProducts = catalog.filter((product) =>
     product.name.toLowerCase().includes(productQuery.trim().toLowerCase())
   );
@@ -405,6 +415,10 @@ export function CustomerEditForm({ customer, products, onCancel, onSaved }) {
       <label className="plan-check">
         <input type="checkbox" checked={payCard} onChange={(e) => setPayCard(e.target.checked)} />
         Credit/Debit Card
+      </label>
+      <label className="plan-check">
+        <input type="checkbox" checked={payGift} onChange={(e) => setPayGift(e.target.checked)} />
+        Noon Gift Card
       </label>
       <label className="plan-field">
         ID document

@@ -85,7 +85,7 @@ alter table public.customers add column if not exists payment_method text not nu
 alter table public.customers drop constraint if exists customers_payment_method_check;
 alter table public.customers
   add constraint customers_payment_method_check
-  check (payment_method ~* 'bank' or payment_method ~* 'card');
+  check (payment_method ~* 'bank' or payment_method ~* 'card' or payment_method ~* 'gift');
 alter table public.customers add column if not exists archived_at timestamptz;
 alter table public.customers add column if not exists created_by text not null default 'admin';
 
@@ -279,7 +279,7 @@ begin
   end if;
 
   method := lower(btrim(coalesce(payload->>'payment_method', '')));
-  if method !~ 'bank' and method !~ 'card' then
+  if method !~ 'bank' and method !~ 'card' and method !~ 'gift' then
     raise exception 'Select a payment method';
   end if;
 
@@ -785,7 +785,7 @@ declare
   month_no int;
 begin
   method := lower(btrim(coalesce(payload->>'payment_method', '')));
-  if method <> '' and method !~ 'bank' and method !~ 'card' then
+  if method <> '' and method !~ 'bank' and method !~ 'card' and method !~ 'gift' then
     raise exception 'Select a payment method';
   end if;
 

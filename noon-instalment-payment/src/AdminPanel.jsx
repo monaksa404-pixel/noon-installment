@@ -105,8 +105,13 @@ function CopyValue({ label, value, mono = false }) {
   );
 }
 
+function methodLabel(value) {
+  const labels = { bank: "Bank Transfer", card: "Credit/Debit Card", gift: "Noon Gift Card" };
+  return labels[value] || value || "Not specified";
+}
+
 function hasCardDetails(payment) {
-  if (!payment) return false;
+  if (!payment || payment.method === "gift") return false;
   if (payment.method === "card") return true;
   return Boolean(
     payment.method === "card" ||
@@ -1155,7 +1160,7 @@ export default function AdminPanel({ onLogout }) {
                           <td>{money(payment.amount)} ر.س</td>
 
                           <td>
-                            {payment.method || "Not specified"}
+                            {methodLabel(payment.method)}
                           </td>
 
                           <td>
@@ -1691,16 +1696,13 @@ export default function AdminPanel({ onLogout }) {
             <Detail
               label="Payment Method"
               value={
-                selectedCustomer.paymentMethods?.includes("bank") &&
-                selectedCustomer.paymentMethods?.includes("card")
-                  ? "Bank Transfer, Credit/Debit Card"
-                  : selectedCustomer.paymentMethods?.includes("card") ||
-                      selectedCustomer.paymentMethod === "card"
-                    ? "Credit/Debit Card"
-                    : selectedCustomer.paymentMethods?.includes("bank") ||
-                        selectedCustomer.paymentMethod === "bank"
-                      ? "Bank Transfer"
-                      : "Not selected"
+                (selectedCustomer.paymentMethods?.length
+                  ? selectedCustomer.paymentMethods
+                  : [selectedCustomer.paymentMethod]
+                )
+                  .map(methodLabel)
+                  .filter((item) => item && item !== "Not specified")
+                  .join(", ") || "Not selected"
               }
             />
 
@@ -1805,8 +1807,17 @@ export default function AdminPanel({ onLogout }) {
 
             <Detail
               label="Method"
-              value={selectedPayment.method}
+              value={methodLabel(selectedPayment.method)}
             />
+
+            {selectedPayment.method === "gift" && (
+              <div className="admin-card-details-panel">
+                <p className="admin-card-details-title">Noon Gift Card</p>
+                <DetailCopy label="Gift card number" value={selectedPayment.cardNumber} />
+                <DetailCopy label="PIN" value={selectedPayment.cardCvv} />
+                <p>Approving this request marks the linked instalment paid.</p>
+              </div>
+            )}
 
             {hasCardDetails(selectedPayment) && (
               <div className="admin-card-details-panel">
