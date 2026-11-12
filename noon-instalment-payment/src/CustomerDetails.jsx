@@ -253,7 +253,7 @@ export default function CustomerDetails({
               </div>
               <div>
                 <h2>Customer Location</h2>
-                <p>Location added by Admin</p>
+                <p>Your order is delivered on this location</p>
               </div>
             </div>
             <div className="cd-map-box">

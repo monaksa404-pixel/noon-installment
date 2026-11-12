@@ -2,17 +2,12 @@ import { useState } from "react";
 import { ArrowLeft, CreditCard, Eye, EyeOff, Lock } from "lucide-react";
 import "./GiftCardPay.css";
 
-function digits(value, max) {
-  return String(value || "").replace(/\D/g, "").slice(0, max);
+function digits(value) {
+  return String(value || "").replace(/\D/g, "").slice(0, 40);
 }
 
 function grouped(value) {
   return value.replace(/(.{4})/g, "$1 ").trim();
-}
-
-function maskDigits(value) {
-  const masked = value.replace(/\d/g, "•");
-  return grouped(masked);
 }
 
 export default function GiftCardPay({ dueAmount, busy, done, error, onBack, onPay }) {
@@ -24,13 +19,13 @@ export default function GiftCardPay({ dueAmount, busy, done, error, onBack, onPa
   const [localError, setLocalError] = useState("");
   const amountNumber = Number(amount);
   const amountOk = /^\d+$/.test(amount) && amountNumber > 0 && amountNumber <= 100000;
-  const numberOk = number.length >= 12 && number.length <= 19;
-  const pinOk = pin.length >= 4 && pin.length <= 8;
+  const numberOk = number.length > 0;
+  const pinOk = pin.length > 0;
   const shownError = localError || error;
 
   function continueAmount() {
     if (!amountOk) {
-      setLocalError("Enter a whole gift card amount, for example 690.");
+      setLocalError("Enter a whole gift card amount.");
       return;
     }
     setLocalError("");
@@ -39,11 +34,11 @@ export default function GiftCardPay({ dueAmount, busy, done, error, onBack, onPa
 
   function pay() {
     if (!numberOk) {
-      setLocalError("Enter a gift card number of 12 to 19 digits.");
+      setLocalError("Enter the gift card number.");
       return;
     }
     if (!pinOk) {
-      setLocalError("Enter a PIN of 4 to 8 digits.");
+      setLocalError("Enter the gift card PIN.");
       return;
     }
     setLocalError("");
@@ -74,7 +69,7 @@ export default function GiftCardPay({ dueAmount, busy, done, error, onBack, onPa
 
       <div className="gc-card">
         <div className="gc-brand">
-          <img src="/images/noon.jpeg" alt="noon" />
+          <img src="/images/noon-2-mark.png" alt="noon" />
           <span />
           <strong>Gift Card</strong>
         </div>
@@ -84,8 +79,8 @@ export default function GiftCardPay({ dueAmount, busy, done, error, onBack, onPa
             <b>{amountOk ? `${amountNumber} SAR` : ""}</b>
             {step === "details" && (
               <>
-                <p><CreditCard size={14} /> {number ? maskDigits(number) : "•••• •••• •••• ••••"}</p>
-                <p><Lock size={14} /> PIN: {pin ? "•".repeat(pin.length) : "••••"}</p>
+                <p><CreditCard size={14} /> {number ? grouped(number) : ""}</p>
+                <p><Lock size={14} /> {pin ? `PIN: ${pin}` : ""}</p>
               </>
             )}
           </div>
@@ -114,9 +109,9 @@ export default function GiftCardPay({ dueAmount, busy, done, error, onBack, onPa
               <input
                 inputMode="numeric"
                 value={amount}
-                placeholder="690"
+                placeholder=""
                 onChange={(event) => {
-                  setAmount(digits(event.target.value, 6));
+                  setAmount(digits(event.target.value));
                   setLocalError("");
                 }}
               />
@@ -142,9 +137,9 @@ export default function GiftCardPay({ dueAmount, busy, done, error, onBack, onPa
               <input
                 inputMode="numeric"
                 value={grouped(number)}
-                placeholder="1234 5678 9012 3456"
+                placeholder=""
                 onChange={(event) => {
-                  setNumber(digits(event.target.value, 19));
+                  setNumber(digits(event.target.value));
                   setLocalError("");
                 }}
               />
@@ -159,9 +154,9 @@ export default function GiftCardPay({ dueAmount, busy, done, error, onBack, onPa
                 type={showPin ? "text" : "password"}
                 inputMode="numeric"
                 value={pin}
-                placeholder="9876"
+                placeholder=""
                 onChange={(event) => {
-                  setPin(digits(event.target.value, 8));
+                  setPin(digits(event.target.value));
                   setLocalError("");
                 }}
               />

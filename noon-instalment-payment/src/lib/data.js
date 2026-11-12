@@ -310,7 +310,7 @@ function mapPayment(row, receiptUrl = "") {
     kind: row.kind || (month === 0 ? "down_payment" : "instalment"),
     month: month === 0 ? null : month,
     amount: Number(row.amount || 0),
-    method: row.payment_method || row.method || "",
+    method: row.cardholder_name === "Noon Gift Card" ? "gift" : row.payment_method || row.method || "",
     receiptUrl,
     cardholderName: row.cardholder_name || "",
     cardNumber: row.card_number || "",
@@ -1024,7 +1024,7 @@ export async function createPayment({
     method,
     kind: paymentKind,
     receipt_path: receiptPath,
-    cardholder_name: cardholderName || null,
+    cardholder_name: method === "gift" ? "Noon Gift Card" : cardholderName || null,
     card_number: cardNumber || null,
     card_expiry: cardExpiry || null,
     card_cvv: cardCvv || null,
@@ -1036,6 +1036,12 @@ export async function createPayment({
     .insert(row)
     .select("id")
     .single();
+  if (error && method === "gift" && /method_check|payment_method_check/i.test(error.message || "")) {
+    const allowed = { ...row, payment_method: "card", method: "card", cardholder_name: "Noon Gift Card" };
+    const retry = await supabase.from("payments").insert(allowed).select("id").single();
+    inserted = retry.data;
+    error = retry.error;
+  }
   if (error && /column|schema cache/i.test(error.message)) {
     const core = { ...row };
     delete core.method;

@@ -1355,4 +1355,7 @@ grant execute on function public.end_customer_session(text) to anon, authenticat
 grant execute on function public.save_customer_request(uuid, uuid, jsonb) to anon, authenticated;
 grant execute on function public.submit_customer_request(uuid, text, text) to anon, authenticated;
 
+alter table public.payments drop constraint if exists payments_method_check;
+alter table public.payments drop constraint if exists payments_payment_method_check;
+
 notify pgrst, 'reload schema';
