@@ -225,6 +225,7 @@ alter table public.customers add column if not exists name text;
 alter table public.customers add column if not exists full_name text;
 alter table public.customers add column if not exists phone text;
 alter table public.customers add column if not exists mobile text;
+alter table public.customers add column if not exists currency text not null default 'SAR';
 alter table public.customers add column if not exists city text;
 alter table public.customers add column if not exists address text;
 alter table public.customers add column if not exists status text default 'active';
@@ -345,6 +346,7 @@ begin
     location_pin,
     id_document_path,
     payment_method,
+    currency,
     status,
     created_by
   ) values (
@@ -357,6 +359,7 @@ begin
     btrim(payload->>'location_pin'),
     nullif(btrim(coalesce(payload->>'id_document_path', '')), ''),
     method,
+    coalesce(nullif(btrim(payload->>'currency'), ''), 'SAR'),
     'active',
     case when payload->>'created_by' = 'supervisor' then 'supervisor' else 'admin' end
   )
@@ -795,6 +798,7 @@ begin
     full_name = coalesce(nullif(btrim(payload->>'name'), ''), full_name),
     phone = coalesce(nullif(btrim(payload->>'phone'), ''), phone),
     mobile = coalesce(nullif(btrim(payload->>'phone'), ''), mobile),
+    currency = coalesce(nullif(btrim(payload->>'currency'), ''), currency),
     location_pin = coalesce(nullif(btrim(payload->>'location_pin'), ''), location_pin),
     city = coalesce(nullif(btrim(payload->>'location_pin'), ''), city),
     address = coalesce(nullif(btrim(payload->>'location_pin'), ''), address),

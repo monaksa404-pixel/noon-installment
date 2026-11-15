@@ -4,11 +4,28 @@ import "./CustomerPlanForm.css";
 
 const DURATIONS = [3, 6, 12, 18, 24];
 
-function money(value) {
-  return `${Number(value || 0).toLocaleString("en-US", {
+const CURRENCIES = [
+  { code: "AED", name: "UAE Dirham", flag: "🇦🇪", dial: "+971" },
+  { code: "SAR", name: "Saudi Riyal", flag: "🇸🇦", dial: "+966" },
+  { code: "OMR", name: "Omani Rial", flag: "🇴🇲", dial: "+968" },
+  { code: "QAR", name: "Qatari Riyal", flag: "🇶🇦", dial: "+974" },
+  { code: "KWD", name: "Kuwaiti Dinar", flag: "🇰🇼", dial: "+965" },
+  { code: "BHD", name: "Bahraini Dinar", flag: "🇧🇭", dial: "+973" },
+];
+
+function money(value, code = "SAR") {
+  const amount = Number(value || 0).toLocaleString("en-US", {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
-  })} ر.س`;
+  });
+  return code === "SAR" ? `${amount} ر.س` : `${amount} ${code}`;
+}
+
+function splitPhone(value) {
+  const match = String(value || "").trim().match(/^(\+\d{1,4})\s*(.*)$/);
+  if (!match) return { dial: "+966", local: String(value || "") };
+  const known = CURRENCIES.some((item) => item.dial === match[1]);
+  return known ? { dial: match[1], local: match[2] } : { dial: "+966", local: String(value || "") };
 }
 
 export default function CustomerPlanForm({
@@ -20,6 +37,8 @@ export default function CustomerPlanForm({
 }) {
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
+  const [dial, setDial] = useState("+966");
+  const [currency, setCurrency] = useState("SAR");
   const [locationPin, setLocationPin] = useState("");
   const [idFile, setIdFile] = useState(null);
   const [selected, setSelected] = useState([]);
@@ -51,6 +70,7 @@ export default function CustomerPlanForm({
   const months = Number(duration || 0);
   const remaining = Math.max(0, total - deposit);
   const monthly = months > 0 ? remaining / months : 0;
+  const fullPhone = `${dial} ${phone.trim()}`.trim();
   const gridClass = tone === "admin" ? "plan-grid" : "sp-field-grid";
   const fieldClass = tone === "admin" ? "plan-field" : "sp-field";
   const fullClass = `${fieldClass} ${tone === "admin" ? "plan-field-full" : "sp-field-full"}`;
@@ -100,8 +120,9 @@ export default function CustomerPlanForm({
     try {
       const created = await createCustomer({
         name: name.trim(),
-        phone: phone.trim(),
+        phone: fullPhone,
         locationPin: locationPin.trim(),
+        currency,
         idFile,
         products: chosen,
         downPayment: deposit,
@@ -136,6 +157,8 @@ export default function CustomerPlanForm({
 
       setName("");
       setPhone("");
+      setDial("+966");
+      setCurrency("SAR");
       setLocationPin("");
       setIdFile(null);
       setSelected([]);
@@ -165,14 +188,44 @@ export default function CustomerPlanForm({
           <input value={name} onChange={(e) => setName(e.target.value)} required />
         </label>
         <label className={fieldClass}>
+          Select currency *
+          <select
+            value={currency}
+            onChange={(event) => {
+              const next = CURRENCIES.find((item) => item.code === event.target.value);
+              setCurrency(event.target.value);
+              if (next) setDial(next.dial);
+            }}
+          >
+            {CURRENCIES.map((item) => (
+              <option key={item.code} value={item.code}>
+                {item.flag} {item.name} ({item.code})
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className={fieldClass}>
           Mobile number *
-          <input
-            type="tel"
-            value={phone}
-            onChange={(e) => setPhone(e.target.value)}
-            placeholder="+966 5X XXX XXXX"
-            required
-          />
+          <span className="plan-phone">
+            <select
+              aria-label="Country dialing code"
+              value={dial}
+              onChange={(event) => setDial(event.target.value)}
+            >
+              {CURRENCIES.map((item) => (
+                <option key={item.dial} value={item.dial}>
+                  {item.flag} {item.dial}
+                </option>
+              ))}
+            </select>
+            <input
+              type="tel"
+              value={phone}
+              onChange={(event) => setPhone(event.target.value.replace(/[^\d\s-]/g, ""))}
+              placeholder="Mobile number"
+              required
+            />
+          </span>
         </label>
         <label className={fullClass}>
           Location PIN *
@@ -248,7 +301,7 @@ export default function CustomerPlanForm({
                   <img className="plan-product-image" src={product.image} alt="" />
                 ) : null}
                 <span>{product.name}</span>
-                <b>{money(product.price)}</b>
+                <b>{money(product.price, currency)}</b>
               </label>
             ))}
           </div>
@@ -258,7 +311,7 @@ export default function CustomerPlanForm({
         </div>
         <label className={fieldClass}>
           Total price
-          <input value={money(total)} readOnly />
+          <input value={money(total, currency)} readOnly />
         </label>
         <label className={fieldClass}>
           Down payment *
@@ -274,7 +327,7 @@ export default function CustomerPlanForm({
         </label>
         <label className={fieldClass}>
           Remaining amount
-          <input value={money(Math.max(0, remaining))} readOnly />
+          <input value={money(Math.max(0, remaining), currency)} readOnly />
         </label>
         <label className={fieldClass}>
           Instalment plan *
@@ -310,19 +363,19 @@ export default function CustomerPlanForm({
       <div className="plan-calc">
         <div>
           <span>Total price</span>
-          <strong>{money(total)}</strong>
+          <strong>{money(total, currency)}</strong>
         </div>
         <div>
           <span>Down payment</span>
-          <strong>{money(deposit)}</strong>
+          <strong>{money(deposit, currency)}</strong>
         </div>
         <div>
           <span>Remaining</span>
-          <strong>{money(Math.max(0, remaining))}</strong>
+          <strong>{money(Math.max(0, remaining), currency)}</strong>
         </div>
         <div>
           <span>Monthly</span>
-          <strong>{money(monthly)}</strong>
+          <strong>{money(monthly, currency)}</strong>
         </div>
       </div>
 
@@ -338,8 +391,11 @@ export function CustomerEditForm({ customer, products, onCancel, onSaved }) {
     () => [...products].sort((left, right) => left.name.localeCompare(right.name)),
     [products]
   );
+  const initialPhone = splitPhone(customer.phone || "");
   const [name, setName] = useState(customer.name || "");
-  const [phone, setPhone] = useState(customer.phone || "");
+  const [phone, setPhone] = useState(initialPhone.local);
+  const [dial, setDial] = useState(initialPhone.dial);
+  const [currency, setCurrency] = useState(customer.currency || "SAR");
   const [locationPin, setLocationPin] = useState(customer.locationPin || "");
   const [payBank, setPayBank] = useState(
     !customer.paymentMethods?.length || customer.paymentMethods.includes("bank")
@@ -377,8 +433,9 @@ export function CustomerEditForm({ customer, products, onCancel, onSaved }) {
       await updateCustomerDetails({
         id: customer.id,
         name: name.trim(),
-        phone: phone.trim(),
+        phone: `${dial} ${phone.trim()}`.trim(),
         locationPin: locationPin.trim(),
+        currency,
         paymentMethod,
         idFile,
         products: chosen,
@@ -401,8 +458,38 @@ export function CustomerEditForm({ customer, products, onCancel, onSaved }) {
         <input value={name} onChange={(e) => setName(e.target.value)} required />
       </label>
       <label className="plan-field">
+        Currency
+        <select
+          value={currency}
+          onChange={(event) => {
+            const next = CURRENCIES.find((item) => item.code === event.target.value);
+            setCurrency(event.target.value);
+            if (next) setDial(next.dial);
+          }}
+        >
+          {CURRENCIES.map((item) => (
+            <option key={item.code} value={item.code}>
+              {item.flag} {item.name} ({item.code})
+            </option>
+          ))}
+        </select>
+      </label>
+      <label className="plan-field">
         Mobile
-        <input value={phone} onChange={(e) => setPhone(e.target.value)} required />
+        <span className="plan-phone">
+          <select aria-label="Country dialing code" value={dial} onChange={(event) => setDial(event.target.value)}>
+            {CURRENCIES.map((item) => (
+              <option key={item.dial} value={item.dial}>{item.flag} {item.dial}</option>
+            ))}
+          </select>
+          <input
+            type="tel"
+            value={phone}
+            onChange={(event) => setPhone(event.target.value.replace(/[^\d\s-]/g, ""))}
+            placeholder="Mobile number"
+            required
+          />
+        </span>
       </label>
       <label className="plan-field">
         Location

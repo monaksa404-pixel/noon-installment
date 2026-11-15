@@ -17,6 +17,23 @@
   grid-column: 1 / -1;
 }
 
+.plan-phone {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 42px;
+}
+
+.plan-phone select {
+  width: 118px;
+  flex: 0 0 118px;
+}
+
+.plan-phone input {
+  flex: 1;
+  width: auto;
+  min-width: 0;
+}
 .plan-field input:not([type="checkbox"]),
 .plan-field select,
 .plan-field-full input:not([type="checkbox"]),

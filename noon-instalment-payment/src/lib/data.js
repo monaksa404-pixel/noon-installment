@@ -44,6 +44,7 @@ const CUSTOMER_SELECT = `
   full_name,
   phone,
   mobile,
+  currency,
   city,
   address,
   location_pin,
@@ -207,6 +208,7 @@ function mapCustomer(row, idDocument = "", payments = []) {
     customerId: row.customer_code,
     name: row.name || row.full_name || "",
     phone: row.phone || row.mobile || "",
+    currency: row.currency || "SAR",
     locationPin: row.location_pin || row.city || row.address || "",
     hasIdDocument: Boolean(row.id_document_path),
     idDocument,
@@ -529,6 +531,7 @@ export async function updateCustomerDetails({
   phone,
   locationPin,
   paymentMethod,
+  currency,
   idFile,
   products,
   downPayment,
@@ -543,6 +546,7 @@ export async function updateCustomerDetails({
   const payload = {
     name,
     phone,
+    currency: currency || "SAR",
     location_pin: locationPin,
     payment_method: methods,
     products: (products || []).map((item) => ({ id: item.id || item })),
@@ -829,6 +833,7 @@ export async function createCustomer({
   downPayment,
   duration,
   paymentMethod,
+  currency,
   bankAccountId,
   createdBy,
 }) {
@@ -842,6 +847,7 @@ export async function createCustomer({
   const payload = {
     name,
     phone,
+    currency: currency || "SAR",
     location_pin: locationPin,
     id_document_path: idDocumentPath,
     payment_method: methods || primary,
