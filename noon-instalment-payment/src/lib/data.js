@@ -103,8 +103,20 @@ function fail(error) {
   throw new Error(message);
 }
 
+function readCurrency(description, column) {
+  const code = String(column || "").trim().toUpperCase();
+  if (CURRENCY_OPTIONS.some((item) => item.code === code)) return code;
+  const suffix = String(description || "").split("|").pop()?.trim().toUpperCase();
+  if (CURRENCY_OPTIONS.some((item) => item.code === suffix)) return suffix;
+  return "";
+}
+
+function sellerToken(description) {
+  return String(description || "").split("|")[0];
+}
+
 function sellerLabel(description) {
-  const text = String(description || "");
+  const text = sellerToken(description);
   if (text === "__seller_type_normal__" || text === "normal") return "Normal";
   if (
     text === "__seller_type_noon__" ||
@@ -121,9 +133,9 @@ function mapProduct(item) {
     id: item.id,
     name: item.name,
     price: Number(item.price || 0),
-    currency: item.currency || "SAR",
+    currency: readCurrency(item.description, item.currency) || "SAR",
     sellerType:
-      item.description === "__seller_type_normal__" ? "normal" : "noon",
+      sellerToken(item.description) === "__seller_type_normal__" ? "normal" : "noon",
     image: item.image_path
       ? String(item.image_path).startsWith("http")
         ? item.image_path
@@ -193,6 +205,7 @@ function mapCustomer(row, idDocument = "", payments = []) {
       id: catalog?.id || item.product_id,
       name: catalog?.name || item.product_name,
       price: catalog?.price != null ? Number(catalog.price) : Number(item.price || 0),
+      currency: readCurrency(catalog?.description, catalog?.currency) || "SAR",
       image: imagePath
         ? String(imagePath).startsWith("http")
           ? imagePath
@@ -208,6 +221,7 @@ function mapCustomer(row, idDocument = "", payments = []) {
       id: catalog?.id || contract.product_id,
       name: catalog?.name || contract.product_name,
       price: catalog?.price != null ? Number(catalog.price) : Number(contract.total_amount || 0),
+      currency: readCurrency(catalog?.description, catalog?.currency) || "SAR",
       image: imagePath
         ? String(imagePath).startsWith("http")
           ? imagePath
@@ -223,7 +237,9 @@ function mapCustomer(row, idDocument = "", payments = []) {
     customerId: row.customer_code,
     name: row.name || row.full_name || "",
     phone: row.phone || row.mobile || "",
-    currency: row.currency || "SAR",
+    currency:
+      [readCurrency("", row.currency), readCurrency(row.payment_method, ""), products.find((item) => item.currency && item.currency !== "SAR")?.currency, products[0]?.currency]
+        .find((code) => code && code !== "SAR") || readCurrency("", row.currency) || "SAR",
     locationPin: row.location_pin || row.city || row.address || "",
     hasIdDocument: Boolean(row.id_document_path),
     idDocument,
@@ -235,7 +251,7 @@ function mapCustomer(row, idDocument = "", payments = []) {
     remainingAmount: Number(contract?.remaining_amount || 0),
     duration: Number(contract?.duration_months || 0),
     monthlyAmount: Number(contract?.monthly_amount || 0),
-    paymentMethod: row.payment_method || "bank",
+    paymentMethod: String(row.payment_method || "bank").split("|")[0],
     bankAccountId: assignedBank(row)?.id || "",
     bank: assignedBank(row),
     contractId: contract?.id || "",
@@ -257,6 +273,7 @@ function mapCustomer(row, idDocument = "", payments = []) {
     createdBy: row.created_by || "",
     archivedAt: row.archived_at || "",
     paymentMethods: String(row.payment_method || "")
+      .split("|")[0]
       .split(",")
       .map((item) => item.trim())
       .filter((item) => item === "bank" || item === "card" || item === "gift"),
@@ -509,10 +526,9 @@ export async function saveProduct({ name, price, sellerType, currency, file }) {
     name,
     price,
     currency: currency || "SAR",
-    description:
-      sellerType === "normal"
-        ? "__seller_type_normal__"
-        : "__seller_type_noon__",
+    description: `${
+      sellerType === "normal" ? "__seller_type_normal__" : "__seller_type_noon__"
+    }|${currency || "SAR"}`,
     image_path: imagePath,
     is_active: true,
   };
@@ -534,10 +550,9 @@ export async function updateProduct({ id, name, price, sellerType, currency }) {
     name: name.trim(),
     price: Number(price),
     currency: currency || "SAR",
-    description:
-      sellerType === "normal"
-        ? "__seller_type_normal__"
-        : "__seller_type_noon__",
+    description: `${
+      sellerType === "normal" ? "__seller_type_normal__" : "__seller_type_noon__"
+    }|${currency || "SAR"}`,
   };
   let result = await supabase.from("products").update(changes).eq("id", id).select(PRODUCT_FIELDS).single();
   if (result.error && /currency/i.test(result.error.message || "")) {
@@ -576,7 +591,7 @@ export async function updateCustomerDetails({
     phone,
     currency: currency || "SAR",
     location_pin: locationPin,
-    payment_method: methods,
+    payment_method: `${methods}|${currency || "SAR"}`,
     products: (products || []).map((item) => ({ id: item.id || item })),
     down_payment: Number(downPayment),
     duration_months: Number(duration),
@@ -878,7 +893,7 @@ export async function createCustomer({
     currency: currency || "SAR",
     location_pin: locationPin,
     id_document_path: idDocumentPath,
-    payment_method: methods || primary,
+    payment_method: `${methods || primary}|${currency || "SAR"}`,
     bank_account_id: bankAccountId,
     down_payment: Number(downPayment),
     duration_months: Number(duration),
