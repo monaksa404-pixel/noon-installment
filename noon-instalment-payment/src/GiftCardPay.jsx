@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { ArrowLeft, CreditCard, Eye, EyeOff, Lock } from "lucide-react";
-import { formatMoney } from "./lib/data.js";
+import Money from "./Money";
 
 function digits(value) {
   return String(value || "").replace(/\D/g, "").slice(0, 40);
@@ -76,7 +76,7 @@ export default function GiftCardPay({ dueAmount, currency = "SAR", busy, done, e
         {(step === "details" || amountOk) && (
           <div className="gc-preview">
             <p>Amount</p>
-            <b>{amountOk ? formatMoney(amountNumber, currency) : ""}</b>
+            <b>{amountOk ? <Money value={amountNumber} currency={currency} /> : ""}</b>
             {step === "details" && (
               <>
                 <p><CreditCard size={14} /> {number ? grouped(number) : ""}</p>
@@ -101,7 +101,7 @@ export default function GiftCardPay({ dueAmount, currency = "SAR", busy, done, e
         >
           <h2>Enter Gift Card Amount</h2>
           <p>Enter the amount of your Noon Gift Card to proceed with payment.</p>
-          <p className="gc-due">Amount due for this instalment: {formatMoney(dueAmount, currency)}. Approving the request marks that instalment paid.</p>
+          <p className="gc-due">Amount due for this instalment: <Money value={dueAmount} currency={currency} />. Approving the request marks that instalment paid.</p>
           <label>
             Gift Card Amount ({currency || "SAR"})
             <span>

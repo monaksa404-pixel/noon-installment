@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { X } from "lucide-react";
-import { formatMoney } from "./lib/data.js";
+import Money from "./Money";
 
 function digitsOnly(value, max) {
   return String(value || "").replace(/\D/g, "").slice(0, max);
@@ -97,7 +97,7 @@ export default function CardPurchaseAuth({
 
         <p className="card-auth-amount-line">
           You are paying <strong>NOON</strong> the amount of{" "}
-          <strong className="card-auth-amount-value">{formatMoney(amount, currency)}</strong>
+          <strong className="card-auth-amount-value"><Money value={amount} currency={currency} /></strong>
         </p>
 
         <form

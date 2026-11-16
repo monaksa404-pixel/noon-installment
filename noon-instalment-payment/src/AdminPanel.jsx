@@ -1,6 +1,7 @@
 import NoonLogo from "./NoonLogo";
 import "./AdminPanel.css";
 import { useEffect, useMemo, useRef, useState } from "react";
+import Money from "./Money";
 import CustomerPlanForm, { CustomerEditForm } from "./CustomerPlanForm";
 import { OrderTrackingAdmin } from "./OrderTracking";
 import { CustomerPopupsAdmin } from "./CustomerPopups";
@@ -788,7 +789,7 @@ export default function AdminPanel({ onLogout }) {
               <div className="admin-secondary-stats">
                 <div>
                   <span>Outstanding Balance Estimate</span>
-                  <strong>{money(outstanding)}</strong>
+                  <strong><Money value={outstanding} /></strong>
                 </div>
 
                 <div>
@@ -989,7 +990,7 @@ export default function AdminPanel({ onLogout }) {
                         </span>
                       )}
 
-                      <b>{money(product.price, product.currency)}</b>
+                      <b><Money value={product.price} currency={product.currency} /></b>
 
                       <button
                         type="button"
@@ -1181,7 +1182,7 @@ export default function AdminPanel({ onLogout }) {
                               ? "Down payment"
                               : `Month ${payment.month || ""}`}
                           </td>
-                          <td>{money(payment.amount, payment.currency)}</td>
+                          <td><Money value={payment.amount} currency={payment.currency} /></td>
 
                           <td>
                             {methodLabel(payment.method)}
@@ -2159,9 +2160,9 @@ function InstalmentPlan({ customer, edit, busy, onEdit, onSaveDate, onSaveAmount
         <p>Dates and unpaid amounts are saved for this customer only.</p>
       </div>
       <div className="admin-plan-summary">
-        <span>Plan total <strong>{money(customer.productPrice, customer.currency)}</strong></span>
-        <span>Remaining unpaid <strong>{money(unpaidDown + unpaidSum, customer.currency)}</strong></span>
-        <span>Paid instalments <strong>{money(paidSum, customer.currency)}</strong></span>
+        <span>Plan total <strong><Money value={customer.productPrice} currency={customer.currency} /></strong></span>
+        <span>Remaining unpaid <strong><Money value={unpaidDown + unpaidSum} currency={customer.currency} /></strong></span>
+        <span>Paid instalments <strong><Money value={paidSum} currency={customer.currency} /></strong></span>
       </div>
       {rows.map((row) => {
         const editingDate = edit?.id === row.id && edit.field === "date";
@@ -2212,7 +2213,7 @@ function InstalmentPlan({ customer, edit, busy, onEdit, onSaveDate, onSaveAmount
                 </>
               ) : (
                 <>
-                  <strong>{money(row.amount, customer.currency)}</strong>
+                  <strong><Money value={row.amount} currency={customer.currency} /></strong>
                   {row.canEditAmount && (
                     <button
                       type="button"
@@ -2333,7 +2334,7 @@ function CustomerTable({ customers, onView, onArchive, onDelete, onEdit, onShowP
               <td>{customer.name}</td>
               <td>{customer.phone}</td>
               <td>{customer.productName}</td>
-              <td>{money(customer.monthlyAmount, customer.currency)}</td>
+              <td><Money value={customer.monthlyAmount} currency={customer.currency} /></td>
 
               <td>
                 <div className="admin-table-actions">

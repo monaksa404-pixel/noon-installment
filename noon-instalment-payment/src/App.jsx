@@ -12,7 +12,6 @@ import {
   listCustomerRequests,
   startCustomerSession,
   formatPlanDate,
-  formatMoney,
   notifyDownPayment,
   portalView,
   submitPaymentOtp,
@@ -40,6 +39,7 @@ import CustomerDetails from "./CustomerDetails";
 import { OrderTrackingPopup } from "./OrderTracking";
 import { CustomerRequestPopup } from "./CustomerPopups";
 import GiftCardPay from "./GiftCardPay";
+import Money from "./Money";
 import "./CustomerPopups.css";
 import NoonLogo from "./NoonLogo";
 import SupervisorPanel from "./SupervisorPanel";
@@ -856,7 +856,7 @@ export default function App() {
                 </div>
 
                 <div className="amount-value">
-                  {formatMoney(paymentTarget?.amount || 0, customer.currency)}
+                  <Money value={paymentTarget?.amount || 0} currency={customer.currency} />
                 </div>
 
                 <div className="due-date">

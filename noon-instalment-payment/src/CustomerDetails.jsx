@@ -17,7 +17,8 @@ import {
   ArrowRight,
   ExternalLink,
 } from "lucide-react";
-import { formatPlanDate, formatMoney } from "./lib/data.js";
+import { formatPlanDate } from "./lib/data.js";
+import Money from "./Money";
 import "./CustomerDetails.css";
 
 const demoCustomer = {
@@ -87,7 +88,7 @@ export default function CustomerDetails({
   onPayNext,
   onTrack,
 }) {
-  const money = (amount) => formatMoney(amount, customer.currency);
+  const money = (amount, currency = customer.currency) => <Money value={amount} currency={currency} />;
   const flag = phoneFlag(customer.phone);
   const duration = Math.max(
     0,
@@ -356,7 +357,7 @@ export default function CustomerDetails({
                     <b>{product.name}</b>
                     <SellerLine sellerType={product.sellerType} />
                   </span>
-                  <strong>{formatMoney(product.price, product.currency || customer.currency)}</strong>
+                  <strong>{money(product.price, product.currency || customer.currency)}</strong>
                 </li>
               ))}
             </ul>

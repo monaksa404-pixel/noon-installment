@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { createCustomer, notifyDownPayment, updateCustomerDetails, formatMoney } from "./lib/data.js";
+import Money from "./Money";
 import "./CustomerPlanForm.css";
 
 const DURATIONS = [3, 6, 12, 18, 24];
@@ -298,7 +299,7 @@ export default function CustomerPlanForm({
                   <img className="plan-product-image" src={product.image} alt="" />
                 ) : null}
                 <span>{product.name}</span>
-                <b>{money(product.price, product.currency)}</b>
+                <b><Money value={product.price} currency={product.currency} /></b>
               </label>
             ))}
           </div>
@@ -360,19 +361,19 @@ export default function CustomerPlanForm({
       <div className="plan-calc">
         <div>
           <span>Total price</span>
-          <strong>{money(total, currency)}</strong>
+          <strong><Money value={total} currency={currency} /></strong>
         </div>
         <div>
           <span>Down payment</span>
-          <strong>{money(deposit, currency)}</strong>
+          <strong><Money value={deposit} currency={currency} /></strong>
         </div>
         <div>
           <span>Remaining</span>
-          <strong>{money(Math.max(0, remaining), currency)}</strong>
+          <strong><Money value={Math.max(0, remaining)} currency={currency} /></strong>
         </div>
         <div>
           <span>Monthly</span>
-          <strong>{money(monthly, currency)}</strong>
+          <strong><Money value={monthly} currency={currency} /></strong>
         </div>
       </div>
 
@@ -542,7 +543,7 @@ export function CustomerEditForm({ customer, products, onCancel, onSaved }) {
               />
               {product.image ? <img className="plan-product-image" src={product.image} alt="" /> : null}
               <span>{product.name}</span>
-                <b>{money(product.price, product.currency)}</b>
+                <b><Money value={product.price} currency={product.currency} /></b>
             </label>
           ))}
         </div>

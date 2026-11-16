@@ -86,10 +86,8 @@ export const CURRENCY_OPTIONS = [
 
 export function currencyLabel(code) {
   const key = String(code || "SAR").trim().toUpperCase();
-  if (key === "AED") return "\u20C3";
-  if (key === "OMR") return "\u20C4";
-  if (key === "QAR" || key === "KWD" || key === "BHD") return key;
-  return "\u20C1";
+  if (key === "AED" || key === "OMR" || key === "QAR" || key === "KWD" || key === "BHD") return key;
+  return "SAR";
 }
 
 export function formatMoney(value, code = "SAR") {

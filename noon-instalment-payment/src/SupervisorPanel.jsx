@@ -19,6 +19,7 @@ import {
   Users,
 } from "lucide-react";
 import CustomerPlanForm, { CustomerEditForm } from "./CustomerPlanForm";
+import Money from "./Money";
 import { OrderTrackingAdmin } from "./OrderTracking";
 import { CustomerPopupsAdmin } from "./CustomerPopups";
 import {
@@ -31,7 +32,6 @@ import {
   deleteCustomer,
   setCustomerArchived,
   currencyLabel,
-  formatMoney,
   CURRENCY_OPTIONS,
 } from "./lib/data.js";
 import NoonLogo from "./NoonLogo";
@@ -532,7 +532,7 @@ export default function SupervisorPanel({ onLogout }) {
                       ) : (
                         <span className="sp-normal-badge">Normal Product</span>
                       )}
-                      <strong>{formatMoney(product.price, product.currency)}</strong>
+                      <strong><Money value={product.price} currency={product.currency} /></strong>
                       <button
                         type="button"
                         className="sp-button sp-button-light sp-small-button"
@@ -635,15 +635,15 @@ export default function SupervisorPanel({ onLogout }) {
                     <dt>Product</dt>
                     <dd>{selectedCustomer.productName}</dd>
                     <dt>Total Price</dt>
-                    <dd>{formatMoney(selectedCustomer.productPrice, selectedCustomer.currency)}</dd>
+                    <dd><Money value={selectedCustomer.productPrice} currency={selectedCustomer.currency} /></dd>
                     <dt>Down Payment</dt>
-                    <dd>{formatMoney(selectedCustomer.downPayment, selectedCustomer.currency)}</dd>
+                    <dd><Money value={selectedCustomer.downPayment} currency={selectedCustomer.currency} /></dd>
                     <dt>Remaining</dt>
-                    <dd>{formatMoney(selectedCustomer.remainingAmount, selectedCustomer.currency)}</dd>
+                    <dd><Money value={selectedCustomer.remainingAmount} currency={selectedCustomer.currency} /></dd>
                     <dt>Duration</dt>
                     <dd>{selectedCustomer.duration} month(s)</dd>
                     <dt>Monthly Instalment</dt>
-                    <dd>{formatMoney(selectedCustomer.monthlyAmount, selectedCustomer.currency)}</dd>
+                    <dd><Money value={selectedCustomer.monthlyAmount} currency={selectedCustomer.currency} /></dd>
                     <dt>Payment Method</dt>
                     <dd>
                       {(selectedCustomer.paymentMethods?.length
@@ -815,7 +815,7 @@ function CustomerTable({
               <td>{customer.name}</td>
               <td>{customer.phone}</td>
               <td>{customer.productName}</td>
-              <td>{formatMoney(customer.monthlyAmount, customer.currency)}</td>
+              <td><Money value={customer.monthlyAmount} currency={customer.currency} /></td>
               <td>
                 <div className="sp-row-actions">
                   <button

@@ -6,7 +6,7 @@ import {
   Send,
   CheckCircle2,
 } from "lucide-react";
-import { formatMoney } from "./lib/data.js";
+import Money from "./Money";
 
 function digitsOnly(value, max) {
   return String(value || "").replace(/\D/g, "").slice(0, max);
@@ -103,7 +103,7 @@ export default function ManualPOSCard({ amount = 240, currency = "SAR", onReques
         <>
           <div className="pos-amount-box">
             <span>Instalment Amount</span>
-            <strong>{formatMoney(amount, currency)}</strong>
+            <strong><Money value={amount} currency={currency} /></strong>
           </div>
 
           <form
