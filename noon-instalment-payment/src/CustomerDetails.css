@@ -208,6 +208,11 @@
   flex-shrink: 0;
 }
 
+.customer-details .cd-phone-flag {
+  font-size: 14px;
+  line-height: 1;
+}
+
 .customer-details .cd-verified-row {
   display: flex;
   flex-wrap: wrap;

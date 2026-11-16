@@ -54,8 +54,33 @@ function SellerLine({ sellerType }) {
   return null;
 }
 
-function formatSAR(amount) {
-  return `${Number(amount || 0).toLocaleString("en-US")} ر.س`;
+const CURRENCY_MARK = {
+  AED: "د.إ",
+  SAR: "ر.س",
+  OMR: "ر.ع",
+  QAR: "ر.ق",
+  KWD: "د.ك",
+  BHD: "د.ب",
+};
+
+const PHONE_FLAGS = [
+  ["+971", "🇦🇪"],
+  ["+966", "🇸🇦"],
+  ["+968", "🇴🇲"],
+  ["+974", "🇶🇦"],
+  ["+965", "🇰🇼"],
+  ["+973", "🇧🇭"],
+];
+
+function formatMoney(amount, currency) {
+  const value = Number(amount || 0).toLocaleString("en-US");
+  return `${value} ${CURRENCY_MARK[currency] || CURRENCY_MARK.SAR}`;
+}
+
+function phoneFlag(phone) {
+  const compact = String(phone || "").replace(/\s/g, "");
+  const match = PHONE_FLAGS.find(([dial]) => compact.startsWith(dial));
+  return match ? match[1] : "";
 }
 
 function getDueDate(startDate, month) {
@@ -76,6 +101,8 @@ export default function CustomerDetails({
   onPayNext,
   onTrack,
 }) {
+  const money = (amount) => formatMoney(amount, customer.currency);
+  const flag = phoneFlag(customer.phone);
   const duration = Math.max(
     0,
     Math.min(60, Number(customer.duration) || 0)
@@ -228,6 +255,7 @@ export default function CustomerDetails({
             <h3>{customer.name}</h3>
             <div className="cd-phone">
               <Phone size={12} />
+              {flag ? <span className="cd-phone-flag">{flag}</span> : null}
               <span>{customer.phone || "Number not provided"}</span>
             </div>
             <div className="cd-verified-row">
@@ -342,7 +370,7 @@ export default function CustomerDetails({
                     <b>{product.name}</b>
                     <SellerLine sellerType={product.sellerType} />
                   </span>
-                  <strong>{formatSAR(product.price)}</strong>
+                  <strong>{money(product.price)}</strong>
                 </li>
               ))}
             </ul>
@@ -351,17 +379,17 @@ export default function CustomerDetails({
           <div className="cd-price-grid">
             <div className="cd-price-box">
               <span>Total Product Price</span>
-              <strong>{formatSAR(customer.productPrice)}</strong>
+              <strong>{money(customer.productPrice)}</strong>
             </div>
 
             <div className="cd-price-box">
               <span>Down Payment</span>
-              <strong>{formatSAR(customer.downPayment)}</strong>
+              <strong>{money(customer.downPayment)}</strong>
             </div>
 
             <div className="cd-price-box">
               <span>Remaining Amount</span>
-              <strong>{formatSAR(customer.remainingAmount)}</strong>
+              <strong>{money(customer.remainingAmount)}</strong>
             </div>
 
             <div className="cd-price-box">
@@ -371,7 +399,7 @@ export default function CustomerDetails({
 
             <div className="cd-price-box">
               <span>Monthly Instalment</span>
-              <strong>{formatSAR(customer.monthlyAmount)}</strong>
+              <strong>{money(customer.monthlyAmount)}</strong>
             </div>
           </div>
         </section>
@@ -409,7 +437,7 @@ export default function CustomerDetails({
               </div>
 
               <strong className="cd-down-amount">
-                {formatSAR(customer.downPayment)}
+                {money(customer.downPayment)}
               </strong>
             </div>
 
@@ -466,7 +494,7 @@ export default function CustomerDetails({
                   </div>
 
                   <strong>
-                    {formatSAR(item.amount || customer.monthlyAmount)}
+                    {money(item.amount || customer.monthlyAmount)}
                   </strong>
 
                   <span className="cd-due-date">
