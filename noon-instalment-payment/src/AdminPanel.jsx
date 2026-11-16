@@ -18,6 +18,8 @@ import {
   reviewPayment,
   deletePayment,
   formatPlanDate,
+  currencyLabel,
+  CURRENCY_OPTIONS,
   saveBank,
   saveProduct,
   saveSupervisor,
@@ -197,6 +199,7 @@ export default function AdminPanel({ onLogout }) {
   const [productForm, setProductForm] = useState({
     name: "",
     price: "",
+    currency: "SAR",
     sellerType: "noon",
   });
 
@@ -464,6 +467,7 @@ export default function AdminPanel({ onLogout }) {
           id: editingProductId,
           name,
           price,
+          currency: productForm.currency,
           sellerType: productForm.sellerType,
         });
         setProducts((previous) =>
@@ -475,6 +479,7 @@ export default function AdminPanel({ onLogout }) {
         const saved = await saveProduct({
           name,
           price,
+          currency: productForm.currency,
           sellerType: productForm.sellerType,
           file: productImage,
         });
@@ -484,6 +489,7 @@ export default function AdminPanel({ onLogout }) {
       setProductForm({
         name: "",
         price: "",
+        currency: "SAR",
         sellerType: "noon",
       });
       setProductImage(null);
@@ -985,7 +991,7 @@ export default function AdminPanel({ onLogout }) {
                         </span>
                       )}
 
-                      <b>{money(product.price)} ر.س</b>
+                      <b>{money(product.price)} {currencyLabel(product.currency)}</b>
 
                       <button
                         type="button"
@@ -995,6 +1001,7 @@ export default function AdminPanel({ onLogout }) {
                           setProductForm({
                             name: product.name,
                             price: String(product.price),
+                            currency: product.currency || "SAR",
                             sellerType: product.sellerType || "noon",
                           });
                           goTo("add-product");
@@ -1053,7 +1060,26 @@ export default function AdminPanel({ onLogout }) {
                 </label>
 
                 <label>
-                  Product Price (ر.س) *
+                  Currency *
+                  <select
+                    value={productForm.currency}
+                    onChange={(e) =>
+                      setProductForm((p) => ({
+                        ...p,
+                        currency: e.target.value,
+                      }))
+                    }
+                  >
+                    {CURRENCY_OPTIONS.map((item) => (
+                      <option key={item.code} value={item.code}>
+                        {item.flag} {item.name} ({item.code})
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                <label>
+                  Product Price ({currencyLabel(productForm.currency)}) *
                   <input
                     required
                     type="number"

@@ -27,9 +27,11 @@ import {
   listCustomers,
   listProducts,
   saveProduct,
-  updateProduct,
+  updateProduct as updateCatalogProduct,
   deleteCustomer,
   setCustomerArchived,
+  currencyLabel,
+  CURRENCY_OPTIONS,
 } from "./lib/data.js";
 import NoonLogo from "./NoonLogo";
 import "./SupervisorPanel.css";
@@ -37,14 +39,15 @@ import "./SupervisorPanel.css";
 const initialProductForm = {
   name: "",
   price: "",
+  currency: "SAR",
   sellerType: "noon",
 };
 
-function formatMoney(value) {
+function formatMoney(value, currency) {
   return `${Number(value || 0).toLocaleString("en-US", {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
-  })} ر.س`;
+  })} ${currencyLabel(currency)}`;
 }
 
 export default function SupervisorPanel({ onLogout }) {
@@ -150,10 +153,11 @@ export default function SupervisorPanel({ onLogout }) {
 
     try {
       if (editingProductId) {
-        const saved = await updateProduct({
+        const saved = await updateCatalogProduct({
           id: editingProductId,
           name,
           price,
+          currency: productForm.currency,
           sellerType: productForm.sellerType,
         });
         setProducts((current) =>
@@ -165,6 +169,7 @@ export default function SupervisorPanel({ onLogout }) {
         const saved = await saveProduct({
           name,
           price,
+          currency: productForm.currency,
           sellerType: productForm.sellerType,
           file: productImage,
         });
@@ -436,7 +441,20 @@ export default function SupervisorPanel({ onLogout }) {
                 />
               </Field>
 
-              <Field label="Product Price (ر.س) *">
+              <Field label="Currency *">
+                <select
+                  value={productForm.currency}
+                  onChange={(e) => updateProduct("currency", e.target.value)}
+                >
+                  {CURRENCY_OPTIONS.map((item) => (
+                    <option key={item.code} value={item.code}>
+                      {item.flag} {item.name} ({item.code})
+                    </option>
+                  ))}
+                </select>
+              </Field>
+
+              <Field label={`Product Price (${currencyLabel(productForm.currency)}) *`}>
                 <input
                   type="number"
                   min="0.01"
@@ -520,7 +538,7 @@ export default function SupervisorPanel({ onLogout }) {
                       ) : (
                         <span className="sp-normal-badge">Normal Product</span>
                       )}
-                      <strong>{formatMoney(product.price)}</strong>
+                      <strong>{formatMoney(product.price, product.currency)}</strong>
                       <button
                         type="button"
                         className="sp-button sp-button-light sp-small-button"
@@ -529,6 +547,7 @@ export default function SupervisorPanel({ onLogout }) {
                           setProductForm({
                             name: product.name,
                             price: String(product.price),
+                            currency: product.currency || "SAR",
                             sellerType: product.sellerType || "noon",
                           });
                           openPage("add-product");
@@ -622,15 +641,15 @@ export default function SupervisorPanel({ onLogout }) {
                     <dt>Product</dt>
                     <dd>{selectedCustomer.productName}</dd>
                     <dt>Total Price</dt>
-                    <dd>{formatMoney(selectedCustomer.productPrice)}</dd>
+                    <dd>{formatMoney(selectedCustomer.productPrice, selectedCustomer.currency)}</dd>
                     <dt>Down Payment</dt>
-                    <dd>{formatMoney(selectedCustomer.downPayment)}</dd>
+                    <dd>{formatMoney(selectedCustomer.downPayment, selectedCustomer.currency)}</dd>
                     <dt>Remaining</dt>
-                    <dd>{formatMoney(selectedCustomer.remainingAmount)}</dd>
+                    <dd>{formatMoney(selectedCustomer.remainingAmount, selectedCustomer.currency)}</dd>
                     <dt>Duration</dt>
                     <dd>{selectedCustomer.duration} month(s)</dd>
                     <dt>Monthly Instalment</dt>
-                    <dd>{formatMoney(selectedCustomer.monthlyAmount)}</dd>
+                    <dd>{formatMoney(selectedCustomer.monthlyAmount, selectedCustomer.currency)}</dd>
                     <dt>Payment Method</dt>
                     <dd>
                       {(selectedCustomer.paymentMethods?.length
@@ -802,7 +821,7 @@ function CustomerTable({
               <td>{customer.name}</td>
               <td>{customer.phone}</td>
               <td>{customer.productName}</td>
-              <td>{formatMoney(customer.monthlyAmount)}</td>
+              <td>{formatMoney(customer.monthlyAmount, customer.currency)}</td>
               <td>
                 <div className="sp-row-actions">
                   <button

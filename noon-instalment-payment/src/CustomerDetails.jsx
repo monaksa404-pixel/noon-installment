@@ -17,7 +17,7 @@ import {
   ArrowRight,
   ExternalLink,
 } from "lucide-react";
-import { formatPlanDate } from "./lib/data.js";
+import { formatPlanDate, currencyLabel } from "./lib/data.js";
 import "./CustomerDetails.css";
 
 const demoCustomer = {
@@ -54,15 +54,6 @@ function SellerLine({ sellerType }) {
   return null;
 }
 
-const CURRENCY_MARK = {
-  AED: "د.إ",
-  SAR: "ر.س",
-  OMR: "ر.ع",
-  QAR: "ر.ق",
-  KWD: "د.ك",
-  BHD: "د.ب",
-};
-
 const PHONE_FLAGS = [
   ["+971", "🇦🇪"],
   ["+966", "🇸🇦"],
@@ -74,7 +65,7 @@ const PHONE_FLAGS = [
 
 function formatMoney(amount, currency) {
   const value = Number(amount || 0).toLocaleString("en-US");
-  return `${value} ${CURRENCY_MARK[currency] || CURRENCY_MARK.SAR}`;
+  return `${value} ${currencyLabel(currency)}`;
 }
 
 function phoneFlag(phone) {

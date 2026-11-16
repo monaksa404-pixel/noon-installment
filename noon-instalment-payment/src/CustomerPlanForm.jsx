@@ -301,7 +301,7 @@ export default function CustomerPlanForm({
                   <img className="plan-product-image" src={product.image} alt="" />
                 ) : null}
                 <span>{product.name}</span>
-                <b>{money(product.price, currency)}</b>
+                <b>{money(product.price, product.currency)}</b>
               </label>
             ))}
           </div>
@@ -545,7 +545,7 @@ export function CustomerEditForm({ customer, products, onCancel, onSaved }) {
               />
               {product.image ? <img className="plan-product-image" src={product.image} alt="" /> : null}
               <span>{product.name}</span>
-              <b>{money(product.price)}</b>
+                <b>{money(product.price, product.currency)}</b>
             </label>
           ))}
         </div>

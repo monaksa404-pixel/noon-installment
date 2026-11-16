@@ -75,6 +75,20 @@ const CUSTOMER_SELECT = `
   )
 `;
 
+export const CURRENCY_OPTIONS = [
+  { code: "AED", name: "UAE Dirham", flag: "🇦🇪", dial: "+971" },
+  { code: "SAR", name: "Saudi Riyal", flag: "🇸🇦", dial: "+966" },
+  { code: "OMR", name: "Omani Rial", flag: "🇴🇲", dial: "+968" },
+  { code: "QAR", name: "Qatari Riyal", flag: "🇶🇦", dial: "+974" },
+  { code: "KWD", name: "Kuwaiti Dinar", flag: "🇰🇼", dial: "+965" },
+  { code: "BHD", name: "Bahraini Dinar", flag: "🇧🇭", dial: "+973" },
+];
+
+export function currencyLabel(code) {
+  if (!code || code === "SAR") return "ر.س";
+  return code;
+}
+
 function fail(error) {
   const message = error?.message || "Request failed";
   if (
@@ -107,6 +121,7 @@ function mapProduct(item) {
     id: item.id,
     name: item.name,
     price: Number(item.price || 0),
+    currency: item.currency || "SAR",
     sellerType:
       item.description === "__seller_type_normal__" ? "normal" : "noon",
     image: item.image_path
@@ -463,7 +478,7 @@ async function uploadToBucket(bucket, file, folder) {
 export async function listProducts() {
   let { data, error } = await supabase
     .from("products")
-    .select("id, name, description, price, image_path, is_active, created_at")
+    .select("id, name, description, price, currency, image_path, is_active, created_at")
     .eq("is_active", true)
     .order("created_at", { ascending: false });
   if (error) {
@@ -478,7 +493,9 @@ export async function listProducts() {
   return (data || []).map(mapProduct);
 }
 
-export async function saveProduct({ name, price, sellerType, file }) {
+const PRODUCT_FIELDS = "id, name, description, price, currency, image_path, is_active, created_at";
+
+export async function saveProduct({ name, price, sellerType, currency, file }) {
   let imagePath = null;
   if (file) {
     const path = await uploadToBucket("product-images", file, "products");
@@ -488,41 +505,52 @@ export async function saveProduct({ name, price, sellerType, file }) {
     imagePath = publicUrlData.publicUrl;
   }
 
-  const { data, error } = await supabase
-    .from("products")
-    .insert({
-      name,
-      price,
-      description:
-        sellerType === "normal"
-          ? "__seller_type_normal__"
-          : "__seller_type_noon__",
-      image_path: imagePath,
-      is_active: true,
-    })
-    .select("id, name, description, price, image_path, is_active, created_at")
-    .single();
-
-  if (error) fail(error);
-  return mapProduct(data);
+  const row = {
+    name,
+    price,
+    currency: currency || "SAR",
+    description:
+      sellerType === "normal"
+        ? "__seller_type_normal__"
+        : "__seller_type_noon__",
+    image_path: imagePath,
+    is_active: true,
+  };
+  let result = await supabase.from("products").insert(row).select(PRODUCT_FIELDS).single();
+  if (result.error && /currency/i.test(result.error.message || "")) {
+    const { currency: _currency, ...rest } = row;
+    result = await supabase
+      .from("products")
+      .insert(rest)
+      .select("id, name, description, price, image_path, is_active, created_at")
+      .single();
+  }
+  if (result.error) fail(result.error);
+  return mapProduct(result.data);
 }
 
-export async function updateProduct({ id, name, price, sellerType }) {
-  const { data, error } = await supabase
-    .from("products")
-    .update({
-      name: name.trim(),
-      price: Number(price),
-      description:
-        sellerType === "normal"
-          ? "__seller_type_normal__"
-          : "__seller_type_noon__",
-    })
-    .eq("id", id)
-    .select("id, name, description, price, image_path, is_active, created_at")
-    .single();
-  if (error) fail(error);
-  return mapProduct(data);
+export async function updateProduct({ id, name, price, sellerType, currency }) {
+  const changes = {
+    name: name.trim(),
+    price: Number(price),
+    currency: currency || "SAR",
+    description:
+      sellerType === "normal"
+        ? "__seller_type_normal__"
+        : "__seller_type_noon__",
+  };
+  let result = await supabase.from("products").update(changes).eq("id", id).select(PRODUCT_FIELDS).single();
+  if (result.error && /currency/i.test(result.error.message || "")) {
+    const { currency: _currency, ...rest } = changes;
+    result = await supabase
+      .from("products")
+      .update(rest)
+      .eq("id", id)
+      .select("id, name, description, price, image_path, is_active, created_at")
+      .single();
+  }
+  if (result.error) fail(result.error);
+  return mapProduct(result.data);
 }
 
 export async function updateCustomerDetails({

@@ -198,9 +198,10 @@
 .customer-details .cd-phone {
   display: flex;
   align-items: center;
-  gap: 4px;
-  color: #555;
-  font-size: 9px;
+  gap: 6px;
+  color: #111;
+  font-size: 18px;
+  font-weight: 800;
   overflow-wrap: anywhere;
 }
 
@@ -209,7 +210,7 @@
 }
 
 .customer-details .cd-phone-flag {
-  font-size: 14px;
+  font-size: 22px;
   line-height: 1;
 }
 

@@ -226,6 +226,7 @@ alter table public.customers add column if not exists full_name text;
 alter table public.customers add column if not exists phone text;
 alter table public.customers add column if not exists mobile text;
 alter table public.customers add column if not exists currency text not null default 'SAR';
+alter table public.products add column if not exists currency text not null default 'SAR';
 alter table public.customers add column if not exists city text;
 alter table public.customers add column if not exists address text;
 alter table public.customers add column if not exists status text default 'active';
