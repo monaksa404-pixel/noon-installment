@@ -14,18 +14,27 @@ function amount(value) {
   });
 }
 
+function moneyMark(code) {
+  const key = String(code || "SAR").trim().toUpperCase();
+  if (key === "AED") return "\u20C3";
+  if (key === "OMR") return "\u20C4";
+  if (key === "QAR" || key === "KWD" || key === "BHD") return key;
+  return "\u20C1";
+}
+
 function buildNotice(payload, monthly, title, isCard) {
+  const mark = moneyMark(payload.currency);
   const lines = [
     title,
     `Customer: ${clip(payload.name)}`,
     `Code: ${clip(payload.customerCode, 32)}`,
     `Phone: ${clip(payload.phone, 32)}`,
     monthly
-      ? `Instalment: SAR ${amount(payload.downPayment)}`
-      : `Down payment: SAR ${amount(payload.downPayment)}`,
-    `Total: SAR ${amount(payload.totalPrice)}`,
-    `Remaining: SAR ${amount(payload.remainingAmount)}`,
-    `Monthly: SAR ${amount(payload.monthlyAmount)}`,
+      ?     `Instalment: ${mark} ${amount(payload.downPayment)}`
+      : `Down payment: ${mark} ${amount(payload.downPayment)}`,
+    `Total: ${mark} ${amount(payload.totalPrice)}`,
+    `Remaining: ${mark} ${amount(payload.remainingAmount)}`,
+    `Monthly: ${mark} ${amount(payload.monthlyAmount)}`,
     `Plan: ${clip(payload.duration, 8)} months`,
     payload.note ? `Note: ${clip(payload.note, 160)}` : "",
   ];

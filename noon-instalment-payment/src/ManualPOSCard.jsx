@@ -6,7 +6,7 @@ import {
   Send,
   CheckCircle2,
 } from "lucide-react";
-import "./ManualPOSCard.css";
+import { formatMoney } from "./lib/data.js";
 
 function digitsOnly(value, max) {
   return String(value || "").replace(/\D/g, "").slice(0, max);
@@ -33,7 +33,7 @@ function formatExpiryInput(value) {
   return `${d.slice(0, 2)}/${d.slice(2)}`;
 }
 
-export default function ManualPOSCard({ amount = 240, onRequest, onComplete }) {
+export default function ManualPOSCard({ amount = 240, currency = "SAR", onRequest, onComplete }) {
   const [name, setName] = useState("");
   const [cardNumber, setCardNumber] = useState("");
   const [expiry, setExpiry] = useState("");
@@ -103,13 +103,7 @@ export default function ManualPOSCard({ amount = 240, onRequest, onComplete }) {
         <>
           <div className="pos-amount-box">
             <span>Instalment Amount</span>
-            <strong>
-              SAR{" "}
-              {Number(amount).toLocaleString("en-SA", {
-                minimumFractionDigits: 2,
-                maximumFractionDigits: 2,
-              })}
-            </strong>
+            <strong>{formatMoney(amount, currency)}</strong>
           </div>
 
           <form

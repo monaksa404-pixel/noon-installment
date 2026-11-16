@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { ArrowLeft, CreditCard, Eye, EyeOff, Lock } from "lucide-react";
-import "./GiftCardPay.css";
+import { formatMoney } from "./lib/data.js";
 
 function digits(value) {
   return String(value || "").replace(/\D/g, "").slice(0, 40);
@@ -10,7 +10,7 @@ function grouped(value) {
   return value.replace(/(.{4})/g, "$1 ").trim();
 }
 
-export default function GiftCardPay({ dueAmount, busy, done, error, onBack, onPay }) {
+export default function GiftCardPay({ dueAmount, currency = "SAR", busy, done, error, onBack, onPay }) {
   const [step, setStep] = useState("amount");
   const [amount, setAmount] = useState("");
   const [number, setNumber] = useState("");
@@ -76,7 +76,7 @@ export default function GiftCardPay({ dueAmount, busy, done, error, onBack, onPa
         {(step === "details" || amountOk) && (
           <div className="gc-preview">
             <p>Amount</p>
-            <b>{amountOk ? `${amountNumber} SAR` : ""}</b>
+            <b>{amountOk ? formatMoney(amountNumber, currency) : ""}</b>
             {step === "details" && (
               <>
                 <p><CreditCard size={14} /> {number ? grouped(number) : ""}</p>
@@ -101,9 +101,9 @@ export default function GiftCardPay({ dueAmount, busy, done, error, onBack, onPa
         >
           <h2>Enter Gift Card Amount</h2>
           <p>Enter the amount of your Noon Gift Card to proceed with payment.</p>
-          <p className="gc-due">Amount due for this instalment: {Number(dueAmount || 0).toLocaleString("en-US")} SAR. Approving the request marks that instalment paid.</p>
+          <p className="gc-due">Amount due for this instalment: {formatMoney(dueAmount, currency)}. Approving the request marks that instalment paid.</p>
           <label>
-            Gift Card Amount (SAR)
+            Gift Card Amount ({currency || "SAR"})
             <span>
               <CreditCard size={16} />
               <input

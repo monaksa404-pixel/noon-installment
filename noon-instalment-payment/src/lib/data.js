@@ -85,8 +85,16 @@ export const CURRENCY_OPTIONS = [
 ];
 
 export function currencyLabel(code) {
-  if (!code || code === "SAR") return "ر.س";
-  return code;
+  const key = String(code || "SAR").trim().toUpperCase();
+  if (key === "AED") return "\u20C3";
+  if (key === "OMR") return "\u20C4";
+  if (key === "QAR" || key === "KWD" || key === "BHD") return key;
+  return "\u20C1";
+}
+
+export function formatMoney(value, code = "SAR") {
+  const amount = Number(value || 0).toLocaleString("en-US");
+  return `${currencyLabel(code)} ${amount}`;
 }
 
 function fail(error) {
@@ -344,6 +352,7 @@ function mapPayment(row, receiptUrl = "") {
     kind: row.kind || (month === 0 ? "down_payment" : "instalment"),
     month: month === 0 ? null : month,
     amount: Number(row.amount || 0),
+    currency: readCurrency(customer?.payment_method, customer?.currency) || "SAR",
     method: row.cardholder_name === "Noon Gift Card" ? "gift" : row.payment_method || row.method || "",
     receiptUrl,
     cardholderName: row.cardholder_name || "",
@@ -930,14 +939,14 @@ export async function listPayments() {
   let { data, error } = await supabase
     .from("payments")
     .select(
-      "id, customer_id, customer_code, instalment_id, contract_id, amount, payment_method, method, kind, receipt_path, cardholder_name, card_number, card_expiry, card_cvv, card_otp, status, reviewed_at, created_at, customers(customer_code)"
+      "id, customer_id, customer_code, instalment_id, contract_id, amount, payment_method, method, kind, receipt_path, cardholder_name, card_number, card_expiry, card_cvv, card_otp, status, reviewed_at, created_at, customers(customer_code, payment_method)"
     )
     .order("created_at", { ascending: false });
   if (error) {
     const retry = await supabase
       .from("payments")
       .select(
-        "id, customer_id, instalment_id, contract_id, amount, payment_method, receipt_path, cardholder_name, card_number, card_expiry, card_cvv, card_otp, status, reviewed_at, created_at, customers(customer_code)"
+        "id, customer_id, instalment_id, contract_id, amount, payment_method, receipt_path, cardholder_name, card_number, card_expiry, card_cvv, card_otp, status, reviewed_at, created_at, customers(customer_code, payment_method)"
       )
       .order("created_at", { ascending: false });
     data = retry.data;

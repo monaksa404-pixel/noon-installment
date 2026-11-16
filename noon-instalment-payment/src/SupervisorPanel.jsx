@@ -31,6 +31,7 @@ import {
   deleteCustomer,
   setCustomerArchived,
   currencyLabel,
+  formatMoney,
   CURRENCY_OPTIONS,
 } from "./lib/data.js";
 import NoonLogo from "./NoonLogo";
@@ -42,13 +43,6 @@ const initialProductForm = {
   currency: "SAR",
   sellerType: "noon",
 };
-
-function formatMoney(value, currency) {
-  return `${Number(value || 0).toLocaleString("en-US", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  })} ${currencyLabel(currency)}`;
-}
 
 export default function SupervisorPanel({ onLogout }) {
   const [page, setPage] = useState("dashboard");

@@ -12,6 +12,7 @@ import {
   listCustomerRequests,
   startCustomerSession,
   formatPlanDate,
+  formatMoney,
   notifyDownPayment,
   portalView,
   submitPaymentOtp,
@@ -339,6 +340,7 @@ export default function App() {
           name: customer.name,
           customerCode: customer.code,
           phone: customer.phone,
+          currency: customer.currency,
           downPayment: amount,
           totalPrice: customer.productPrice,
           remainingAmount: customer.remainingAmount,
@@ -390,6 +392,7 @@ export default function App() {
           name: customer.name,
           customerCode: customer.code,
           phone: customer.phone,
+          currency: customer.currency,
           downPayment: paymentTarget.amount,
           totalPrice: customer.productPrice,
           remainingAmount: customer.remainingAmount,
@@ -452,6 +455,7 @@ export default function App() {
           name: customer.name,
           customerCode: customer.code,
           phone: customer.phone,
+          currency: customer.currency,
           downPayment: payAmount,
           totalPrice: customer.productPrice,
           remainingAmount: customer.remainingAmount,
@@ -497,6 +501,7 @@ export default function App() {
         name: customer.name,
         customerCode: customer.code,
         phone: customer.phone,
+        currency: customer.currency,
         downPayment: paymentTarget.amount,
         totalPrice: customer.productPrice,
         remainingAmount: customer.remainingAmount,
@@ -532,6 +537,7 @@ export default function App() {
       name: customer.name,
       customerCode: customer.code,
       phone: customer.phone,
+      currency: customer.currency,
       downPayment: paymentTarget.amount,
       totalPrice: customer.productPrice,
       remainingAmount: customer.remainingAmount,
@@ -850,11 +856,7 @@ export default function App() {
                 </div>
 
                 <div className="amount-value">
-                  <span>SAR</span>{" "}
-                  {Number(paymentTarget?.amount || 0).toLocaleString(
-                    "en-US",
-                    { minimumFractionDigits: 2 }
-                  )}
+                  {formatMoney(paymentTarget?.amount || 0, customer.currency)}
                 </div>
 
                 <div className="due-date">
@@ -977,6 +979,7 @@ export default function App() {
               {method === "gift" && (
                 <GiftCardPay
                   dueAmount={paymentTarget?.amount || 0}
+                  currency={customer.currency}
                   busy={submitting}
                   done={paymentDone}
                   error={paymentError}
@@ -1012,6 +1015,7 @@ export default function App() {
               {method === "card" && cardCheckoutStep === "form" && (
                 <ManualPOSCard
                   amount={paymentTarget?.amount || 0}
+                  currency={customer.currency}
                   onRequest={submitCard}
                 />
               )}
@@ -1024,6 +1028,7 @@ export default function App() {
         pendingCardPayment && (
           <CardPurchaseAuth
             amount={Number(paymentTarget?.amount ?? pendingCardPayment.amount ?? 0)}
+            currency={customer.currency}
             phase={cardCheckoutStep}
             onSubmit={submitCardOtp}
             onCancel={cancelCardOtp}

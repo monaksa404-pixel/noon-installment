@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { X } from "lucide-react";
-import "./CardPurchaseAuth.css";
+import { formatMoney } from "./lib/data.js";
 
 function digitsOnly(value, max) {
   return String(value || "").replace(/\D/g, "").slice(0, max);
@@ -14,6 +14,7 @@ const CARD_BRANDS = [
 
 export default function CardPurchaseAuth({
   amount = 0,
+  currency = "SAR",
   phase = "otp",
   onSubmit,
   onCancel,
@@ -34,11 +35,6 @@ export default function CardPurchaseAuth({
     }, 1000);
     return () => clearInterval(timer);
   }, [phase, timerKey]);
-
-  const amountLabel = Number(amount || 0).toLocaleString("en-US", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
 
   if (phase === "preparing" || phase === "loading") {
     return (
@@ -101,7 +97,7 @@ export default function CardPurchaseAuth({
 
         <p className="card-auth-amount-line">
           You are paying <strong>NOON</strong> the amount of{" "}
-          <strong className="card-auth-amount-value">SAR {amountLabel}</strong>
+          <strong className="card-auth-amount-value">{formatMoney(amount, currency)}</strong>
         </p>
 
         <form

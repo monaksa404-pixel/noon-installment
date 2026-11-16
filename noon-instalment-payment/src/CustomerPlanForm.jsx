@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { createCustomer, notifyDownPayment, updateCustomerDetails } from "./lib/data.js";
+import { createCustomer, notifyDownPayment, updateCustomerDetails, formatMoney } from "./lib/data.js";
 import "./CustomerPlanForm.css";
 
 const DURATIONS = [3, 6, 12, 18, 24];
@@ -14,11 +14,7 @@ const CURRENCIES = [
 ];
 
 function money(value, code = "SAR") {
-  const amount = Number(value || 0).toLocaleString("en-US", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
-  return code === "SAR" ? `${amount} ر.س` : `${amount} ${code}`;
+  return formatMoney(value, code);
 }
 
 function splitPhone(value) {
@@ -147,6 +143,7 @@ export default function CustomerPlanForm({
             remainingAmount: created.remaining_amount,
             monthlyAmount: created.monthly_amount,
             duration: created.duration_months,
+            currency,
             note: "Down payment assigned on the customer record",
           });
           notice += " Telegram down-payment notice sent.";

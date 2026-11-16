@@ -19,6 +19,7 @@ import {
   deletePayment,
   formatPlanDate,
   currencyLabel,
+  formatMoney,
   CURRENCY_OPTIONS,
   saveBank,
   saveProduct,
@@ -167,11 +168,8 @@ function OnOff({ label, on, onOn, onOff, compact = false }) {
   );
 }
 
-function money(value) {
-  return Number(value || 0).toLocaleString("en-US", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
+function money(value, currency = "SAR") {
+  return formatMoney(value, currency);
 }
 
 export default function AdminPanel({ onLogout }) {
@@ -782,7 +780,7 @@ export default function AdminPanel({ onLogout }) {
                 <StatCard
                   icon={Wallet}
                   label="Payments Received"
-                  value={`${money(collected)} ر.س`}
+                  value={money(collected)}
                   note="Approved recorded payments"
                 />
               </div>
@@ -790,7 +788,7 @@ export default function AdminPanel({ onLogout }) {
               <div className="admin-secondary-stats">
                 <div>
                   <span>Outstanding Balance Estimate</span>
-                  <strong>{money(outstanding)} ر.س</strong>
+                  <strong>{money(outstanding)}</strong>
                 </div>
 
                 <div>
@@ -991,7 +989,7 @@ export default function AdminPanel({ onLogout }) {
                         </span>
                       )}
 
-                      <b>{money(product.price)} {currencyLabel(product.currency)}</b>
+                      <b>{money(product.price, product.currency)}</b>
 
                       <button
                         type="button"
@@ -1183,7 +1181,7 @@ export default function AdminPanel({ onLogout }) {
                               ? "Down payment"
                               : `Month ${payment.month || ""}`}
                           </td>
-                          <td>{money(payment.amount)} ر.س</td>
+                          <td>{money(payment.amount, payment.currency)}</td>
 
                           <td>
                             {methodLabel(payment.method)}
@@ -1588,14 +1586,14 @@ export default function AdminPanel({ onLogout }) {
                 <StatCard
                   icon={DollarSign}
                   label="Approved Payments"
-                  value={`${money(collected)} ر.س`}
+                  value={money(collected)}
                   note="Sum of approved payment records"
                 />
 
                 <StatCard
                   icon={Wallet}
                   label="Estimated Outstanding"
-                  value={`${money(outstanding)} ر.س`}
+                  value={money(outstanding)}
                   note="Estimate from current customer records"
                 />
 
@@ -1701,17 +1699,17 @@ export default function AdminPanel({ onLogout }) {
 
             <Detail
               label="Total Price"
-              value={`${money(selectedCustomer.productPrice)} ر.س`}
+              value={money(selectedCustomer.productPrice, selectedCustomer.currency)}
             />
 
             <Detail
               label="Down Payment"
-              value={`${money(selectedCustomer.downPayment)} ر.س`}
+              value={money(selectedCustomer.downPayment, selectedCustomer.currency)}
             />
 
             <Detail
               label="Remaining"
-              value={`${money(selectedCustomer.remainingAmount)} ر.س`}
+              value={money(selectedCustomer.remainingAmount, selectedCustomer.currency)}
             />
 
             <Detail
@@ -1743,7 +1741,7 @@ export default function AdminPanel({ onLogout }) {
 
             <Detail
               label="Monthly Instalment"
-              value={`${money(selectedCustomer.monthlyAmount)} ر.س`}
+              value={money(selectedCustomer.monthlyAmount, selectedCustomer.currency)}
             />
 
             <Detail
@@ -1819,7 +1817,7 @@ export default function AdminPanel({ onLogout }) {
 
             <Detail
               label="Amount"
-              value={`${money(selectedPayment.amount)} ر.س`}
+              value={money(selectedPayment.amount, selectedPayment.currency)}
             />
 
             <Detail
@@ -2112,7 +2110,7 @@ function splitPreview(customer, instalmentId, nextAmount) {
   if (edited > pool + 0.001) return { error: "Amount is higher than the remaining balance." };
   if (!others.length) {
     if (Math.abs(edited - pool) > 0.009) {
-      return { error: `This last unpaid month must stay ${money(pool)} SAR.` };
+      return { error: `This last unpaid month must stay ${money(pool, customer.currency)}.` };
     }
     return { count: 0, share: edited, last: edited };
   }
@@ -2161,9 +2159,9 @@ function InstalmentPlan({ customer, edit, busy, onEdit, onSaveDate, onSaveAmount
         <p>Dates and unpaid amounts are saved for this customer only.</p>
       </div>
       <div className="admin-plan-summary">
-        <span>Plan total <strong>{money(customer.productPrice)} SAR</strong></span>
-        <span>Remaining unpaid <strong>{money(unpaidDown + unpaidSum)} SAR</strong></span>
-        <span>Paid instalments <strong>{money(paidSum)} SAR</strong></span>
+        <span>Plan total <strong>{money(customer.productPrice, customer.currency)}</strong></span>
+        <span>Remaining unpaid <strong>{money(unpaidDown + unpaidSum, customer.currency)}</strong></span>
+        <span>Paid instalments <strong>{money(paidSum, customer.currency)}</strong></span>
       </div>
       {rows.map((row) => {
         const editingDate = edit?.id === row.id && edit.field === "date";
@@ -2208,13 +2206,13 @@ function InstalmentPlan({ customer, edit, busy, onEdit, onSaveDate, onSaveAmount
                   <small>
                     {preview?.error ||
                       (preview?.count
-                        ? `The other ${preview.count} unpaid months share ${money(roundMoney(preview.share * (preview.count - 1) + preview.last))} SAR.`
+                        ? `The other ${preview.count} unpaid months share ${money(roundMoney(preview.share * (preview.count - 1) + preview.last), customer.currency)}.`
                         : "")}
                   </small>
                 </>
               ) : (
                 <>
-                  <strong>{money(row.amount)} SAR</strong>
+                  <strong>{money(row.amount, customer.currency)}</strong>
                   {row.canEditAmount && (
                     <button
                       type="button"
@@ -2335,7 +2333,7 @@ function CustomerTable({ customers, onView, onArchive, onDelete, onEdit, onShowP
               <td>{customer.name}</td>
               <td>{customer.phone}</td>
               <td>{customer.productName}</td>
-              <td>{money(customer.monthlyAmount)} ر.س</td>
+              <td>{money(customer.monthlyAmount, customer.currency)}</td>
 
               <td>
                 <div className="admin-table-actions">

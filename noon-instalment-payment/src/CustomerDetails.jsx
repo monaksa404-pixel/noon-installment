@@ -17,7 +17,7 @@ import {
   ArrowRight,
   ExternalLink,
 } from "lucide-react";
-import { formatPlanDate, currencyLabel } from "./lib/data.js";
+import { formatPlanDate, formatMoney } from "./lib/data.js";
 import "./CustomerDetails.css";
 
 const demoCustomer = {
@@ -62,11 +62,6 @@ const PHONE_FLAGS = [
   ["+965", "🇰🇼"],
   ["+973", "🇧🇭"],
 ];
-
-function formatMoney(amount, currency) {
-  const value = Number(amount || 0).toLocaleString("en-US");
-  return `${value} ${currencyLabel(currency)}`;
-}
 
 function phoneFlag(phone) {
   const compact = String(phone || "").replace(/\s/g, "");
@@ -361,7 +356,7 @@ export default function CustomerDetails({
                     <b>{product.name}</b>
                     <SellerLine sellerType={product.sellerType} />
                   </span>
-                  <strong>{money(product.price)}</strong>
+                  <strong>{formatMoney(product.price, product.currency || customer.currency)}</strong>
                 </li>
               ))}
             </ul>
