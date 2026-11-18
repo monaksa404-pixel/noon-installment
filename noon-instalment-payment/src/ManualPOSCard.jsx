@@ -7,6 +7,8 @@ import {
   CheckCircle2,
 } from "lucide-react";
 import Money from "./Money";
+import AcceptedCards from "./AcceptedCards";
+import "./ManualPOSCard.css";
 
 function digitsOnly(value, max) {
   return String(value || "").replace(/\D/g, "").slice(0, max);
@@ -59,12 +61,7 @@ export default function ManualPOSCard({ amount = 240, currency = "SAR", onReques
       <div className="pos-yellow-line" />
 
       <div className="pos-accepted-label">Accepted Cards</div>
-
-      <div className="pos-card-logos">
-        <img src="/images/cards/visa.jpeg" alt="Visa" />
-        <img src="/images/cards/mastercard.jpeg" alt="Mastercard" />
-        <img src="/images/cards/mada.jpeg" alt="mada" />
-      </div>
+      <AcceptedCards />
 
       <div className="pos-black-card">
         <div className="pos-card-brand">NOON</div>

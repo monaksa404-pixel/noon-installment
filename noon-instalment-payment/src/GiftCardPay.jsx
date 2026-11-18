@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { ArrowLeft, CreditCard, Eye, EyeOff, Lock } from "lucide-react";
 import Money from "./Money";
+import AcceptedCards from "./AcceptedCards";
 
 function digits(value) {
   return String(value || "").replace(/\D/g, "").slice(0, 40);
@@ -66,6 +67,7 @@ export default function GiftCardPay({ dueAmount, currency = "SAR", busy, done, e
         <span>Details</span>
         <span>Confirm</span>
       </div>
+      <AcceptedCards />
 
       <div className="gc-card">
         <div className="gc-brand">

@@ -1,0 +1,49 @@
+.accepted-cards {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  margin: 12px 0;
+}
+
+.accepted-cards > span {
+  min-width: 0;
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px 8px;
+  border: 1px solid #e2e2e2;
+  border-radius: 8px;
+  background: #fff;
+  box-sizing: border-box;
+}
+
+.accepted-cards img {
+  display: block;
+  height: 34px;
+  width: auto;
+  max-width: 100%;
+  object-fit: contain;
+  object-position: center;
+}
+
+.accepted-cards-otp {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin: 0 0 18px;
+}
+
+.accepted-cards-otp > span {
+  flex: none;
+  min-height: 56px;
+  padding: 8px 6px;
+}
+
+.accepted-cards-otp img {
+  width: 100%;
+  height: 42px;
+  max-width: 100%;
+}

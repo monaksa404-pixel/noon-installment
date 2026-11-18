@@ -1,16 +1,12 @@
 import { useEffect, useState } from "react";
 import { X } from "lucide-react";
 import Money from "./Money";
+import AcceptedCards from "./AcceptedCards";
+import "./CardPurchaseAuth.css";
 
 function digitsOnly(value, max) {
   return String(value || "").replace(/\D/g, "").slice(0, max);
 }
-
-const CARD_BRANDS = [
-  { src: "/images/cards/visa.jpeg", alt: "Visa" },
-  { src: "/images/cards/mastercard.jpeg", alt: "Mastercard" },
-  { src: "/images/cards/mada.jpeg", alt: "mada" },
-];
 
 export default function CardPurchaseAuth({
   amount = 0,
@@ -83,11 +79,7 @@ export default function CardPurchaseAuth({
           </button>
         </div>
 
-        <div className="card-auth-brands" aria-label="Accepted cards">
-          {CARD_BRANDS.map((brand) => (
-            <img key={brand.alt} src={brand.src} alt={brand.alt} />
-          ))}
-        </div>
+        <AcceptedCards variant="otp" />
 
         <h1 className="card-auth-title">Purchase authentication</h1>
 
