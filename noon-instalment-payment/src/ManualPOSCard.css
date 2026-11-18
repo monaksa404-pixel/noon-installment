@@ -51,20 +51,24 @@
 
 .pos-card-logos {
   display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
   align-items: center;
-  flex-wrap: wrap;
   gap: 8px;
 }
 
-.pos-card-logos img {
+.pos-card-panel .pos-card-logos img {
+  display: block;
   height: 34px;
   width: auto;
   max-width: 108px;
+  max-height: 34px;
   object-fit: contain;
   padding: 4px 8px;
   border: 1px solid #e2e2e2;
   border-radius: 8px;
   background: #fff;
+  flex: 0 1 auto;
 }
 
 .pos-visa {

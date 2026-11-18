@@ -769,11 +769,23 @@
 .cd-activity.is-yellow { background: #fff6cc; }
 .cd-activity.is-blue { background: #e7f0fb; }
 
-.cd-product-list img {
+.cd-product-list > li > img {
   width: 48px;
   height: 48px;
   object-fit: cover;
   border-radius: 6px;
+  flex: 0 0 48px;
+}
+
+.cd-product-list .money-amount {
+  flex: 0 0 auto;
+}
+
+.cd-product-list .money-glyph {
+  width: 0.9em;
+  height: 0.9em;
+  object-fit: contain;
+  border-radius: 0;
 }
 
 .cd-activity,
