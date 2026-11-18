@@ -777,13 +777,19 @@
   flex: 0 0 48px;
 }
 
-.cd-product-list .money-amount {
+.customer-details .cd-product-list .money-amount {
+  display: inline-flex;
   flex: 0 0 auto;
+  align-items: center;
+  width: auto;
+  gap: 4px;
 }
 
-.cd-product-list .money-glyph {
-  width: 0.9em;
-  height: 0.9em;
+.customer-details .cd-product-list .money-glyph {
+  width: 14px;
+  height: 14px;
+  max-width: 14px;
+  max-height: 14px;
   object-fit: contain;
   border-radius: 0;
 }
@@ -971,9 +977,10 @@
   font-size: 12px;
 }
 
-.customer-details .cd-product-list li span {
+.customer-details .cd-product-list li > span {
   display: grid;
   flex: 1;
+  min-width: 0;
   gap: 2px;
 }
 

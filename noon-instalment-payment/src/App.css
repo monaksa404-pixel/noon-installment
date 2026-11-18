@@ -464,6 +464,10 @@ button {
   margin: 0 auto;
 }
 
+.payment-page {
+  overflow-x: hidden;
+}
+
 .customer-identity {
   display: flex;
   align-items: center;
