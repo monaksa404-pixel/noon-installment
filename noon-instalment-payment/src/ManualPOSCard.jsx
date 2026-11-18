@@ -59,8 +59,6 @@ export default function ManualPOSCard({ amount = 240, currency = "SAR", onReques
       </div>
 
       <div className="pos-yellow-line" />
-
-      <div className="pos-accepted-label">Accepted Cards</div>
       <AcceptedCards />
 
       <div className="pos-black-card">

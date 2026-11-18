@@ -1,3 +1,9 @@
+.accepted-cards-label {
+  margin-bottom: 12px;
+  font-size: 13px;
+  font-weight: 700;
+}
+
 .accepted-cards {
   display: flex;
   flex-wrap: nowrap;
