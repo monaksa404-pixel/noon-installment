@@ -39,7 +39,6 @@ import CustomerDetails from "./CustomerDetails";
 import { OrderTrackingPopup } from "./OrderTracking";
 import { CustomerRequestPopup } from "./CustomerPopups";
 import GiftCardPay from "./GiftCardPay";
-import AcceptedCards from "./AcceptedCards";
 import Money from "./Money";
 import "./CustomerPopups.css";
 import NoonLogo from "./NoonLogo";
@@ -907,7 +906,6 @@ export default function App() {
 
               {method === "bank" && (
                 <div className="method-detail">
-                  <AcceptedCards />
                   <strong>Bank Account Details</strong>
                   {customer.bank ? (
                     <>

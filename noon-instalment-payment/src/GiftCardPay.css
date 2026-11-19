@@ -88,8 +88,11 @@
 .gc-brand img {
   width: 88px;
   height: 36px;
+  max-width: 88px;
+  max-height: 36px;
   object-fit: contain;
   object-position: left center;
+  flex: 0 0 auto;
 }
 
 .gc-brand span {
